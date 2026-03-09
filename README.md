@@ -23,7 +23,7 @@ A comprehensive platform designed to streamline task assignments, submissions, a
 ## Tech Stack 🛠️
 
 *   **Frontend:** React (Vite), TypeScript, Tailwind CSS, Framer Motion, Lucide Icons.
-*   **Backend:** Node.js, Express, Better-SQLite3 (Relational DB), JWT (Authentication), Bcrypt (Security).
+*   **Backend:** Node.js, Express, MongoDB (Atlas), JWT (Authentication), Bcrypt (Security).
 *   **Storage:** Cloudinary (Screenshot/PDF Image storage integration via Multer).
 
 ## Setup & Installation 🚀
@@ -56,7 +56,7 @@ A comprehensive platform designed to streamline task assignments, submissions, a
     ```bash
     npm run dev
     ```
-    This command concurrently spins up the Vite frontend and the Express backend (`server.ts` using `tsx`). The sqlite database `database.sqlite` will be automatically created on the first run. 
+    This command concurrently spins up the Vite frontend and the Express backend (`server.ts` using `tsx`). Connection to MongoDB is established using the `MONGODB_URI` from your `.env` file.
 
     If the database is empty, a **seeder script will run** generating sample data: departments, classes, users, and tasks, alongside a dummy Supreme Admin (`admin` / `admin123`).
 
@@ -77,4 +77,89 @@ Every level has visibility into the layer directly below it and can roll up stat
 *   **Bulk Onboarding:** Class Advisors can import `.xlsx` files. The backend seamlessly hashes incoming register numbers into passwords while validating duplicates.
 
 ---
+
+## Deployment & Hosting Guide 🌍
+
+> **Recommended:** Host the Backend on **Render** and the Frontend separately on **Vercel**. This gives you a fast CDN-served UI + a stable always-on server.
+
+---
+
+### ✅ RECOMMENDED: Split Deployment — Vercel (Frontend) + Render (Backend)
+
+#### Step 1: Deploy Backend on Render
+
+1. Go to [Render.com](https://render.com/) → **New + > Web Service**
+2. Connect your GitHub repo and select the `main` branch
+3. Configure:
+   - **Environment**: `Node`
+   - **Build Command**: `npm install`
+   - **Start Command**: `npm start`
+4. Add these **Environment Variables** in Render's dashboard:
+
+| Key | Value |
+| :--- | :--- |
+| `NODE_ENV` | `production` |
+| `MONGODB_URI` | `mongodb+srv://...` |
+| `JWT_SECRET` | `your_long_random_secret` |
+| `CLOUDINARY_CLOUD_NAME` | From Cloudinary dashboard |
+| `CLOUDINARY_API_KEY` | From Cloudinary dashboard |
+| `CLOUDINARY_API_SECRET` | From Cloudinary dashboard |
+| `FRONTEND_URL` | Your Vercel URL e.g. `https://vsbec.vercel.app` |
+
+5. Click **Save** and wait for the deployment. Copy your backend URL e.g., `https://vsbec-backend.onrender.com`
+
+> **MongoDB Note:** In MongoDB Atlas → Network Access → Add IP: `0.0.0.0/0` so Render can connect.
+
+---
+
+#### Step 2: Deploy Frontend on Vercel
+
+1. Go to [Vercel.com](https://vercel.com/) → **Add New > Project**
+2. Import your GitHub repo
+3. Configure:
+   - **Framework Preset**: `Vite`
+   - **Build Command**: `npm run build`
+   - **Output Directory**: `dist`
+4. Add this **Environment Variable** in Vercel's dashboard:
+
+| Key | Value |
+| :--- | :--- |
+| `VITE_API_BASE_URL` | Your Render backend URL e.g., `https://vsbec-backend.onrender.com` |
+
+5. Click **Deploy**. Vercel will build the Vite frontend and serve it globally.
+
+---
+
+#### How It Works
+
+```
+User Browser  →  Vercel CDN (React frontend)
+                       ↓ API calls
+              Render Server (Express backend)
+                       ↓
+              MongoDB Atlas + Cloudinary
+```
+
+All API calls in the frontend automatically prepend `VITE_API_BASE_URL` before hitting `/api/...`, so the deployed Vercel app contacts your Render server for all data.
+
+---
+
+### 🔄 Alternative: Single Server on Render
+
+If you want everything in one place (simpler), configure Render with:
+- **Build Command**: `npm install && npm run build`
+- **Start Command**: `npm start`
+- Set `NODE_ENV=production` and it will serve the built frontend from `/dist`.
+
+---
+
+### 🔐 First Production Login
+The seeder runs automatically on a fresh database:
+- **Username**: `admin`
+- **Password**: `admin123`
+
+*⚠️ Change this password immediately after your first production login!*
+
+---
 *Built for VSBEC Academic Management.*
+
