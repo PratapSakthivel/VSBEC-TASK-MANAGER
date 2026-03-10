@@ -490,9 +490,11 @@ export default function App() {
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
+      document.documentElement.style.colorScheme = 'dark';
       localStorage.setItem('theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
+      document.documentElement.style.colorScheme = 'light';
       localStorage.setItem('theme', 'light');
     }
   }, [isDarkMode]);
@@ -1268,7 +1270,14 @@ export default function App() {
           animate={{ opacity: 1, y: 0 }}
           className="w-full max-w-4xl"
         >
-          <div className="flex flex-col items-center mb-12">
+          <div className="flex flex-col items-center mb-12 relative">
+            <button
+              onClick={() => setIsDarkMode(prev => !prev)}
+              className="absolute -top-12 right-0 p-3 text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+            >
+              {isDarkMode ? <Sun size={24} /> : <Moon size={24} />}
+            </button>
             <div className="w-16 h-16 bg-black dark:bg-white rounded-2xl flex items-center justify-center mb-6 shadow-xl">
               <ShieldCheck className="text-white dark:text-black w-8 h-8" />
             </div>
@@ -1978,11 +1987,12 @@ export default function App() {
 
         <div className="p-4 border-t border-zinc-100 dark:border-zinc-800 space-y-2">
           <button
-            onClick={() => setIsDarkMode(!isDarkMode)}
+            type="button"
+            onClick={() => setIsDarkMode(prev => !prev)}
             className="flex items-center gap-3 w-full px-4 py-2 text-zinc-500 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/10 rounded-lg transition-all"
           >
             {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-            <span className="font-medium">{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
+            <span className="font-medium">{isDarkMode ? 'Switch to Light' : 'Switch to Dark'}</span>
           </button>
 
           <div className="px-4 py-2 mt-2">
@@ -2017,7 +2027,8 @@ export default function App() {
           </div>
           <div className="flex items-center gap-2 md:gap-4">
             <button
-              onClick={() => setIsDarkMode(!isDarkMode)}
+              type="button"
+              onClick={() => setIsDarkMode(prev => !prev)}
               className="p-2 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-amber-400 transition-all rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800"
               title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
             >
@@ -3637,8 +3648,9 @@ export default function App() {
                                   </div>
                                   <span className={cn(
                                     "px-3 py-1 rounded-full text-xs font-bold uppercase",
-                                    sub.status === 'VERIFIED' ? "bg-emerald-100 text-emerald-700" :
-                                      sub.status === 'REJECTED' ? "bg-red-100 text-red-700" : "bg-orange-100 text-orange-700"
+                                    sub.status === 'VERIFIED' ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" :
+                                      sub.status === 'REJECTED' ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" :
+                                        "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
                                   )}>
                                     {sub.status}
                                   </span>
