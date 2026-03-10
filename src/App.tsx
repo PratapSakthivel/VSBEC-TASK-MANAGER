@@ -2894,11 +2894,11 @@ export default function App() {
                   {(isAdmin || isHOD || isAdvisor || isCoordinator) && (
                     <Card className={cn(
                       "p-8 rounded-[2rem] shadow-sm border transition-all mb-8",
-                      user?.is_year_coordinator ? "border-indigo-100 bg-indigo-50/10" : "border-zinc-100 bg-white"
+                      user?.is_year_coordinator ? "border-indigo-100 bg-indigo-50/10 dark:border-indigo-900/30 dark:bg-indigo-900/10" : "border-zinc-100 bg-white dark:border-zinc-800 dark:bg-zinc-900"
                     )}>
                       <h3 className={cn(
                         "text-xl font-black mb-8 uppercase tracking-tight flex items-center gap-3",
-                        user?.is_year_coordinator ? "text-indigo-900" : "text-zinc-900"
+                        user?.is_year_coordinator ? "text-indigo-900 dark:text-indigo-100" : "text-zinc-900 dark:text-zinc-100"
                       )}>
                         <div className={cn(
                           "w-10 h-10 rounded-xl flex items-center justify-center",
@@ -2917,7 +2917,7 @@ export default function App() {
                             required
                           />
                           <select
-                            className="w-full px-4 py-2 rounded-lg border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all bg-white"
+                            className="w-full px-4 py-2 rounded-lg border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all bg-white dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:focus:ring-white/5 dark:focus:border-white"
                             value={newTask.category}
                             onChange={e => setNewTask(prev => ({ ...prev, category: e.target.value }))}
                             required
@@ -2953,7 +2953,7 @@ export default function App() {
 
                           {isAdmin && (
                             <select
-                              className="w-full px-4 py-2 rounded-lg border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all bg-white"
+                              className="w-full px-4 py-2 rounded-lg border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all bg-white dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:focus:ring-white/5 dark:focus:border-white"
                               value={newTask.department_id || ''}
                               onChange={e => setNewTask(prev => ({ ...prev, department_id: e.target.value, class_ids: [] }))}
                             >
@@ -2976,8 +2976,8 @@ export default function App() {
                           )}
 
                           {(isAdmin || isHOD || user?.is_year_coordinator) && (
-                            <div className="w-full bg-white border border-zinc-200 rounded-lg p-3">
-                              <label className="text-xs font-bold text-zinc-600 uppercase tracking-widest mb-3 block">
+                            <div className="w-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg p-3">
+                              <label className="text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-widest mb-3 block">
                                 {isAdmin ? 'Select Specific Classes (Optional)' :
                                   user?.is_year_coordinator ? `Classes in Year ${user.year_scope}` :
                                     'Assign to Classes'}
@@ -2991,10 +2991,10 @@ export default function App() {
                                     return c.department_id?.toString() === user?.department_id?.toString();
                                   })
                                   .map(c => (
-                                    <label key={c.id} className="flex items-center gap-2 p-2 hover:bg-zinc-50 rounded-md cursor-pointer transition-colors border border-transparent hover:border-zinc-200">
+                                    <label key={c.id} className="flex items-center gap-2 p-2 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 rounded-md cursor-pointer transition-colors border border-transparent hover:border-zinc-200 dark:hover:border-zinc-600">
                                       <input
                                         type="checkbox"
-                                        className="w-4 h-4 rounded border-zinc-300 text-black focus:ring-black/20"
+                                        className="w-4 h-4 rounded border-zinc-300 dark:border-zinc-600 text-black dark:text-white focus:ring-black/20 dark:focus:ring-white/20"
                                         checked={(newTask.class_ids || []).includes(c.id)}
                                         onChange={(e) => {
                                           if (e.target.checked) {
@@ -3004,12 +3004,12 @@ export default function App() {
                                           }
                                         }}
                                       />
-                                      <span className="text-sm font-medium text-zinc-700">{c.name}</span>
+                                      <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{c.name}</span>
                                     </label>
                                   ))}
                               </div>
                               {(newTask.class_ids || []).length === 0 && (
-                                <p className="text-xs text-zinc-500 mt-3 bg-zinc-50 p-2 rounded">
+                                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-3 bg-zinc-50 dark:bg-zinc-900/50 p-2 rounded">
                                   ℹ️ {user?.is_year_coordinator ? `No specific classes selected. This task will be automatically assigned to ALL Year ${user.year_scope} classes.` :
                                     `No specific classes selected. This task will act as a ${newTask.department_id ? 'Department-Wide' : 'Global'} broadcast to everyone applicable.`}
                                 </p>
@@ -3066,7 +3066,7 @@ export default function App() {
                                 <span className={cn("px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border flex items-center gap-1", catStyle)}>
                                   {catIcon} {task.category || 'General'}
                                 </span>
-                                <h4 className="font-bold text-zinc-900 text-lg md:text-xl">{task.title}</h4>
+                                <h4 className="font-bold text-zinc-900 dark:text-white text-lg md:text-xl">{task.title}</h4>
                               </div>
                               <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
                                 <span className="font-medium text-zinc-700">{task.creator_name}</span>
@@ -3105,7 +3105,7 @@ export default function App() {
                             </div>
                           </div>
 
-                          <p className="text-zinc-600 text-sm mb-6 whitespace-pre-wrap">{task.description}</p>
+                          <p className="text-zinc-600 dark:text-zinc-300 text-sm mb-6 whitespace-pre-wrap">{task.description}</p>
 
                           {task.external_link && (
                             <div className="mb-6">
@@ -3121,14 +3121,14 @@ export default function App() {
                           )}
 
                           {isStudent && task.status === 'OPEN' && (
-                            <div className="bg-zinc-50 p-6 rounded-xl border border-zinc-200 mt-6 shadow-sm">
+                            <div className="bg-zinc-50 dark:bg-zinc-900/50 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 mt-6 shadow-sm">
                               {isDeadlinePassed ? (
                                 <div className="text-center py-6">
-                                  <div className="w-12 h-12 bg-zinc-100 text-zinc-400 rounded-full flex items-center justify-center mx-auto mb-3">
+                                  <div className="w-12 h-12 bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 rounded-full flex items-center justify-center mx-auto mb-3">
                                     <Clock size={24} />
                                   </div>
-                                  <h5 className="font-bold text-zinc-500 mb-1">Uploads Closed</h5>
-                                  <p className="text-sm text-zinc-400 max-w-sm mx-auto">
+                                  <h5 className="font-bold text-zinc-500 dark:text-zinc-400 mb-1">Uploads Closed</h5>
+                                  <p className="text-sm text-zinc-400 dark:text-zinc-500 max-w-sm mx-auto">
                                     The deadline for this task has passed. Submissions are no longer accepted.
                                   </p>
                                 </div>
@@ -3139,11 +3139,11 @@ export default function App() {
                                   if (isLocked) {
                                     return (
                                       <div className="text-center py-6">
-                                        <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                                        <div className="w-12 h-12 bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center mx-auto mb-3">
                                           <XCircle size={24} />
                                         </div>
-                                        <h5 className="font-bold text-red-600 mb-1">Submission Locked</h5>
-                                        <p className="text-sm text-red-500 max-w-sm mx-auto">
+                                        <h5 className="font-bold text-red-600 dark:text-red-400 mb-1">Submission Locked</h5>
+                                        <p className="text-sm text-red-500 dark:text-red-400/80 max-w-sm mx-auto">
                                           You have exceeded the maximum number of resubmissions (2) for this task. It cannot be submitted again.
                                         </p>
                                       </div>
@@ -3154,13 +3154,13 @@ export default function App() {
                                     return (
                                       <div className="space-y-4">
                                         {submission?.status === 'REJECTED' && (
-                                          <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-xs text-red-600">
+                                          <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 rounded-lg text-xs text-red-600 dark:text-red-400">
                                             <p className="font-bold mb-1">Rejected: {submission.rejection_reason}</p>
                                             <p>Please re-submit with the requested changes.</p>
                                           </div>
                                         )}
                                         <div>
-                                          <label className="text-sm font-medium text-zinc-700 mb-2 block">
+                                          <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2 block">
                                             {task.custom_field_label || "Custom Field"}
                                           </label>
                                           <Input
@@ -3170,7 +3170,7 @@ export default function App() {
                                           />
                                         </div>
                                         <div>
-                                          <label className="text-sm font-medium text-zinc-700 mb-2 block">
+                                          <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2 block">
                                             {task.screenshot_instruction || "Upload Screenshot"}
                                           </label>
                                           <div className="flex flex-col gap-4">
@@ -3186,7 +3186,7 @@ export default function App() {
                                                 <div
                                                   className={cn(
                                                     "relative w-full border-2 border-dashed rounded-xl p-6 md:p-8 flex flex-col items-center justify-center transition-all cursor-pointer group",
-                                                    selectedFiles[task.id] ? "border-emerald-500 bg-emerald-50 text-emerald-600" : (isDraggingScreenshot === task.id ? "border-blue-500 bg-blue-50 scale-105" : "border-zinc-200 bg-white text-zinc-400 hover:border-black hover:text-black")
+                                                    selectedFiles[task.id] ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 dark:text-emerald-400" : (isDraggingScreenshot === task.id ? "border-blue-500 bg-blue-50 dark:bg-blue-900/10 scale-105" : "border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 hover:border-black dark:hover:border-white hover:text-black dark:hover:text-white")
                                                   )}
                                                   onDragOver={(e) => { e.preventDefault(); setIsDraggingScreenshot(task.id); }}
                                                   onDragLeave={() => setIsDraggingScreenshot(null)}
@@ -3353,7 +3353,7 @@ export default function App() {
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
                       <Input
                         placeholder="Search submissions by student name or register number..."
-                        className="pl-10"
+                        className="pl-10 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100"
                         value={submissionSearchTerm}
                         onChange={e => { setSubmissionSearchTerm(e.target.value); setSubmissionPage(1); }}
                       />
@@ -3363,10 +3363,11 @@ export default function App() {
                   <Card className="overflow-hidden p-0">
                     <table className="w-full text-left border-collapse">
                       <thead>
-                        <tr className="bg-zinc-50 border-b border-zinc-100">
-                          <th className="p-4 text-xs font-bold text-zinc-400 uppercase tracking-widest">
+                        <tr className="bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-100 dark:border-zinc-800">
+                          <th className="p-4 text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">
                             <input
                               type="checkbox"
+                              className="dark:bg-zinc-800 dark:border-zinc-700"
                               onChange={e => {
                                 if (e.target.checked) {
                                   setSelectedSubmissions(submissions.filter(s => s.status === 'SUBMITTED').map(s => s.id));
@@ -3376,12 +3377,12 @@ export default function App() {
                               }}
                             />
                           </th>
-                          <th className="p-4 text-xs font-bold text-zinc-400 uppercase tracking-widest">Student</th>
-                          <th className="p-4 text-xs font-bold text-zinc-400 uppercase tracking-widest">Task</th>
-                          <th className="p-4 text-xs font-bold text-zinc-400 uppercase tracking-widest">Custom Field</th>
-                          <th className="p-4 text-xs font-bold text-zinc-400 uppercase tracking-widest">Screenshot</th>
-                          <th className="p-4 text-xs font-bold text-zinc-400 uppercase tracking-widest">Status</th>
-                          <th className="p-4 text-xs font-bold text-zinc-400 uppercase tracking-widest text-right">Actions</th>
+                          <th className="p-4 text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Student</th>
+                          <th className="p-4 text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Task</th>
+                          <th className="p-4 text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Custom Field</th>
+                          <th className="p-4 text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Screenshot</th>
+                          <th className="p-4 text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Status</th>
+                          <th className="p-4 text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-zinc-100">
@@ -3408,7 +3409,7 @@ export default function App() {
                           return (
                             <>
                               {paginated.map(s => (
-                                <tr key={s.id} className={cn("hover:bg-zinc-50/50 transition-colors border-l-4", s.status === 'VERIFIED' ? "border-emerald-500" : s.status === 'REJECTED' ? "border-red-500" : "border-orange-500")}>
+                                <tr key={s.id} className={cn("hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors border-l-4", s.status === 'VERIFIED' ? "border-emerald-500" : s.status === 'REJECTED' ? "border-red-500" : "border-orange-500")}>
                                   <td className="p-4">
                                     {s.status === 'SUBMITTED' && (
                                       <input
@@ -3424,14 +3425,14 @@ export default function App() {
                                   </td>
                                   <td className="p-4">
                                     <div className="flex items-center gap-3">
-                                      <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center shrink-0">
-                                        <Users size={16} className="text-zinc-500" />
+                                      <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0">
+                                        <Users size={16} className="text-zinc-500 dark:text-zinc-400" />
                                       </div>
                                       <div>
-                                        <p className="text-sm font-bold text-zinc-900 leading-tight">{s.student_name}</p>
+                                        <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100 leading-tight">{s.student_name}</p>
                                         <div className="flex items-center gap-2">
-                                          <p className="text-[10px] text-zinc-500 font-mono italic">{s.register_number}</p>
-                                          <span className="px-1.5 py-0.5 bg-zinc-100 text-zinc-500 text-[8px] font-black rounded uppercase border border-zinc-200">
+                                          <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono italic">{s.register_number}</p>
+                                          <span className="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 text-[8px] font-black rounded uppercase border border-zinc-200 dark:border-zinc-700">
                                             {s.class_name || 'N/A'}
                                           </span>
                                         </div>
@@ -3439,12 +3440,12 @@ export default function App() {
                                     </div>
                                   </td>
                                   <td className="p-4">
-                                    <p className="text-sm font-medium text-zinc-900">{s.task_title}</p>
-                                    <p className="text-[10px] text-zinc-400 capitalize">{new Date(s.submitted_at).toLocaleDateString()}</p>
+                                    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{s.task_title}</p>
+                                    <p className="text-[10px] text-zinc-400 dark:text-zinc-500 capitalize">{new Date(s.submitted_at).toLocaleDateString()}</p>
                                   </td>
                                   <td className="p-4">
-                                    <p className="text-[10px] text-zinc-400 uppercase font-bold mb-1 tracking-widest">Field Data</p>
-                                    <p className="text-sm font-mono text-zinc-900 bg-zinc-100 px-2 py-1 rounded inline-block">{s.custom_field_value}</p>
+                                    <p className="text-[10px] text-zinc-400 dark:text-zinc-500 uppercase font-bold mb-1 tracking-widest">Field Data</p>
+                                    <p className="text-sm font-mono text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded inline-block">{s.custom_field_value}</p>
                                   </td>
                                   <td className="p-4">
                                     <div className="relative group/img">
