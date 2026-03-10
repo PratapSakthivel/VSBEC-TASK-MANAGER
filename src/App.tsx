@@ -216,7 +216,7 @@ const Button = ({ className, variant = 'primary', ...props }: React.ButtonHTMLAt
 
 const Input = ({ className, ...props }: React.InputHTMLAttributes<HTMLInputElement>) => (
   <input
-    className={cn('w-full px-4 py-2 rounded-lg border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all', className)}
+    className={cn('w-full px-4 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-black/5 dark:focus:ring-white/5 focus:border-black dark:focus:border-white transition-all', className)}
     {...props}
   />
 );
@@ -307,18 +307,35 @@ const SimpleBarChart = ({ data, label, color = "bg-indigo-500" }: { data: { labe
   );
 };
 
-const StatCard = ({ title, value, icon, color }: { title: string; value: number | string; icon: React.ReactNode; color: string }) => (
-  <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 shadow-sm hover:shadow-md transition-all group">
-    <div className="flex items-center justify-between mb-4">
-      <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform", color.replace('bg-', 'bg-') + '-50', color.replace('bg-', 'text-') + '-600')}>
-        {icon}
+const StatCard = ({ title, value, icon, color }: { title: string; value: number | string; icon: React.ReactNode; color: string }) => {
+  // Map base colors to their light and dark variants to avoid fragile string manipulation
+  const colorMap: Record<string, { bg: string, text: string, darkBg: string, darkText: string }> = {
+    'bg-blue': { bg: 'bg-blue-50', text: 'text-blue-600', darkBg: 'dark:bg-blue-900/20', darkText: 'dark:text-blue-400' },
+    'bg-indigo': { bg: 'bg-indigo-50', text: 'text-indigo-600', darkBg: 'dark:bg-indigo-900/20', darkText: 'dark:text-indigo-400' },
+    'bg-emerald': { bg: 'bg-emerald-50', text: 'text-emerald-600', darkBg: 'dark:bg-emerald-900/20', darkText: 'dark:text-emerald-400' },
+    'bg-amber': { bg: 'bg-amber-50', text: 'text-amber-600', darkBg: 'dark:bg-amber-900/20', darkText: 'dark:text-amber-400' },
+    'bg-rose': { bg: 'bg-rose-50', text: 'text-rose-600', darkBg: 'dark:bg-rose-900/20', darkText: 'dark:text-rose-400' },
+    'bg-violet': { bg: 'bg-violet-50', text: 'text-violet-600', darkBg: 'dark:bg-violet-900/20', darkText: 'dark:text-violet-400' },
+    'bg-zinc': { bg: 'bg-zinc-50', text: 'text-zinc-600', darkBg: 'dark:bg-zinc-800', darkText: 'dark:text-zinc-300' },
+  };
+
+  // Find base color (e.g., bg-blue from bg-blue-500)
+  const baseColor = color.split('-').slice(0, 2).join('-');
+  const theme = colorMap[baseColor] || colorMap['bg-zinc'];
+
+  return (
+    <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 shadow-sm hover:shadow-md transition-all group">
+      <div className="flex items-center justify-between mb-4">
+        <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform", theme.bg, theme.text, theme.darkBg, theme.darkText)}>
+          {icon}
+        </div>
+        <span className={cn("text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-widest", theme.bg, theme.text, theme.darkBg, theme.darkText)}>{title}</span>
       </div>
-      <span className={cn("text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-widest", color.replace('bg-', 'bg-') + '-50', color.replace('bg-', 'text-') + '-600')}>{title}</span>
+      <p className="text-3xl font-black text-zinc-900 dark:text-white">{value}</p>
+      <p className="text-xs font-bold text-zinc-400 dark:text-zinc-500 mt-1 uppercase tracking-tighter">{title}</p>
     </div>
-    <p className="text-3xl font-black text-zinc-900 dark:text-white">{value}</p>
-    <p className="text-xs font-bold text-zinc-400 dark:text-zinc-500 mt-1 uppercase tracking-tighter">{title}</p>
-  </div>
-);
+  );
+};
 
 // --- UI Polish Components ---
 export type ToastType = 'success' | 'error' | 'info';
@@ -1994,7 +2011,7 @@ export default function App() {
               <Menu size={20} />
             </button>
             <div>
-              <h2 className="text-base md:text-lg font-bold text-zinc-900 dark:text-white capitalize leading-tight">{view}</h2>
+              <h2 className="text-base md:text-lg font-bold text-zinc-900 dark:text-zinc-100 capitalize leading-tight">{view}</h2>
               <p className="text-[10px] md:text-xs text-zinc-500 dark:text-zinc-400">Academic Management System</p>
             </div>
           </div>
@@ -3613,8 +3630,8 @@ export default function App() {
                               <div>
                                 <div className="flex justify-between items-start">
                                   <div>
-                                    <h4 className="font-bold text-zinc-900 text-lg">{sub.task_title}</h4>
-                                    <p className="text-sm text-zinc-500">
+                                    <h4 className="font-bold text-zinc-900 dark:text-zinc-100 text-lg">{sub.task_title}</h4>
+                                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
                                       {isAdvisor ? `Student: ${sub.student_name}` : `Submitted on ${new Date(sub.submitted_at).toLocaleString()}`}
                                     </p>
                                   </div>
@@ -3670,17 +3687,17 @@ export default function App() {
           </AnimatePresence >
         </div >
 
-        <footer className="mt-auto border-t border-zinc-200 bg-zinc-50 py-8 shrink-0">
-          <div className="max-w-7xl mx-auto px-8 flex flex-col md:flex-row items-center justify-between text-zinc-500">
+        <footer className="mt-auto border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 py-8 shrink-0">
+          <div className="max-w-7xl mx-auto px-8 flex flex-col md:flex-row items-center justify-between text-zinc-500 dark:text-zinc-400">
             <div className="mb-4 md:mb-0 text-center md:text-left">
               <p className="text-sm font-bold text-zinc-900">VSBEC Academic Task Management System</p>
               <p className="text-xs mt-1">Empowering students through structured achievements.</p>
             </div>
             <div className="flex flex-col items-center md:items-end gap-1">
               <div className="flex gap-6 text-sm">
-                <button onClick={() => setShowFooterModal('PRIVACY')} className="hover:text-zinc-900 transition-colors">Privacy Policy</button>
-                <button onClick={() => setShowFooterModal('TERMS')} className="hover:text-zinc-900 transition-colors">Terms of Service</button>
-                <button onClick={() => setShowFooterModal('SUPPORT')} className="hover:text-zinc-900 transition-colors">Support</button>
+                <button onClick={() => setShowFooterModal('PRIVACY')} className="hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">Privacy Policy</button>
+                <button onClick={() => setShowFooterModal('TERMS')} className="hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">Terms of Service</button>
+                <button onClick={() => setShowFooterModal('SUPPORT')} className="hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">Support</button>
               </div>
               <p className="text-[10px] text-zinc-400 mt-2 font-medium">
                 Developed and maintained by the Department of Information Technology, VSB Engineering College. ✨
@@ -3705,8 +3722,8 @@ export default function App() {
                   <X size={24} className="text-zinc-400" />
                 </button>
 
-                <h3 className="text-3xl font-black text-zinc-900 tracking-tight">Report Studio</h3>
-                <p className="text-sm font-bold text-zinc-400 uppercase tracking-widest mt-2 mb-8">
+                <h3 className="text-3xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight">Report Studio</h3>
+                <p className="text-sm font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest mt-2 mb-8">
                   {isHOD ? 'Configure your department report' : `Exporting report for ${user?.class_name || 'your class'}`}
                 </p>
 
@@ -3728,9 +3745,9 @@ export default function App() {
                   )}
 
                   <div>
-                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-2 block">Target Event (Task)</label>
+                    <label className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em] mb-2 block">Target Event (Task)</label>
                     <select
-                      className="w-full p-4 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                      className="w-full p-4 bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 rounded-2xl text-sm font-bold text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                       value={reportFilters.taskId}
                       onChange={(e) => setReportFilters(prev => ({ ...prev, taskId: e.target.value }))}
                     >
@@ -3743,9 +3760,9 @@ export default function App() {
 
                   <div className="grid grid-cols-1 gap-4">
                     <div>
-                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-2 block">Task Category</label>
+                      <label className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em] mb-2 block">Task Category</label>
                       <select
-                        className="w-full p-4 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                        className="w-full p-4 bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 rounded-2xl text-sm font-bold text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                         value={reportFilters.category}
                         onChange={(e) => setReportFilters(prev => ({ ...prev, category: e.target.value }))}
                       >
@@ -3758,9 +3775,9 @@ export default function App() {
                   </div>
 
                   <div>
-                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-2 block">Submission Status</label>
+                    <label className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em] mb-2 block">Submission Status</label>
                     <select
-                      className="w-full p-4 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                      className="w-full p-4 bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 rounded-2xl text-sm font-bold text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                       value={reportFilters.status}
                       onChange={(e) => setReportFilters(prev => ({ ...prev, status: e.target.value }))}
                     >
@@ -3772,14 +3789,14 @@ export default function App() {
                     </select>
                   </div>
 
-                  <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100 mt-4">
+                  <div className="bg-blue-50 dark:bg-blue-900/10 p-6 rounded-3xl border border-blue-100 dark:border-blue-900/30 mt-4">
                     <div className="flex gap-4">
                       <div className="p-3 bg-blue-600 rounded-2xl text-white">
                         <ShieldCheck size={20} />
                       </div>
                       <div>
-                        <p className="text-sm font-black text-blue-900 leading-tight">Detailed Report Mode</p>
-                        <p className="text-[11px] font-bold text-blue-600 mt-1">Downloading detailed student names, register numbers, and verification statuses.</p>
+                        <p className="text-sm font-black text-blue-900 dark:text-blue-100 leading-tight">Detailed Report Mode</p>
+                        <p className="text-[11px] font-bold text-blue-600 dark:text-blue-400 mt-1">Downloading detailed student names, register numbers, and verification statuses.</p>
                       </div>
                     </div>
                   </div>
