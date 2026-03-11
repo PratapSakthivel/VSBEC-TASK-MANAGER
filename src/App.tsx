@@ -271,15 +271,15 @@ const CircularProgress = ({ value, total, label, color = "text-indigo-600", size
             cy={center}
           />
         </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+        <div className="absolute inset-0 flex items-center justify-center">
           <span className={cn("font-black text-zinc-900 dark:text-white leading-none", size === "lg" ? "text-3xl md:text-4xl" : "text-sm md:text-base")}>
             {Math.round(percentage)}%
           </span>
-          <span className={cn("font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-tighter", size === "lg" ? "text-[10px] md:text-[12px] mt-1" : "text-[8px]")}>
-            {label}
-          </span>
         </div>
       </div>
+      <p className={cn("font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-tighter text-center max-w-[8rem]", size === "lg" ? "text-[10px] md:text-[11px]" : "text-[8px]")}>
+        {label}
+      </p>
     </div>
   );
 };
