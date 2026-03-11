@@ -3422,9 +3422,9 @@ export default function App() {
                             </div>
                           )}
                           {(isAdmin || isHOD || isAdvisor || isCoordinator) && (
-                            <div className="mt-6 flex gap-4 border-t border-zinc-100 dark:border-zinc-800 pt-4">
+                            <div className="mt-6 flex justify-end gap-4 border-t border-zinc-100 dark:border-zinc-800 pt-4">
                               {(isAdmin || (isHOD && task.department_id === user?.department_id) || (isAdvisor && Array.isArray(task.class_ids) && task.class_ids.includes(Number(user?.class_id))) || (isCoordinator && Array.isArray(task.class_ids) && task.class_ids.includes(Number(user?.class_id)))) && (
-                                <>
+                                <div className="flex gap-4 mr-auto">
                                   <Button
                                     variant="ghost"
                                     className="text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
@@ -3439,11 +3439,11 @@ export default function App() {
                                   >
                                     <Trash2 size={18} /> Delete
                                   </Button>
-                                </>
+                                </div>
                               )}
                               <Button
                                 variant="ghost"
-                                className="text-zinc-400 hover:text-blue-500 ml-auto"
+                                className="text-zinc-400 hover:text-blue-500"
                                 onClick={() => downloadProofs(task.id, task.title, isAdvisor || isCoordinator ? user?.class_id?.toString() : undefined)}
                                 title="Download Proof Images as ZIP"
                               >
