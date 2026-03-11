@@ -665,6 +665,7 @@ async function startServer() {
     category: t.category,
     external_link: t.external_link,
     deadline: t.deadline,
+    brochure_url: t.brochure_url,
     screenshot_instruction: t.screenshot_instruction,
     custom_field_label: t.custom_field_label,
     creator_name: t.created_by?.full_name || 'Admin',

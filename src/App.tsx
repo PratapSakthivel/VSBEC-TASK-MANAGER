@@ -3839,6 +3839,7 @@ export default function App() {
                 <button onClick={() => setShowFooterModal('PRIVACY')} className="hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">Privacy Policy</button>
                 <button onClick={() => setShowFooterModal('TERMS')} className="hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">Terms of Service</button>
                 <button onClick={() => setShowFooterModal('SUPPORT')} className="hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">Support</button>
+                <button onClick={() => setShowFooterModal('TEAM')} className="hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">Dev Team</button>
               </div>
               <p className="text-[10px] text-zinc-400 mt-2 font-medium">
                 Developed and maintained by the Department of Information Technology, VSB Engineering College. ✨
@@ -4016,6 +4017,26 @@ export default function App() {
                       <p>For technical assistance, login issues, task-related concerns, or system access problems, users may contact the concerned department administrator or system support team.</p>
                       <p>Support is provided during working hours through the institution’s official communication channels.</p>
                       <p>For unresolved issues, users may report directly to the IT Department responsible for maintaining the platform.</p>
+                    </div>
+                  </div>
+                )}
+
+                {showFooterModal === 'TEAM' && (
+                  <div className="space-y-6">
+                    <h3 className="text-2xl font-black">Development Team</h3>
+                    <p className="text-zinc-500 text-sm">This system was designed and developed by <span className="font-bold text-zinc-800">TaskForce VSBEC</span>, a student development team from the Department of Information Technology, VSB Engineering College.</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {['Maheshwaran P', 'Dhanya Sri', 'Gomathi', 'Pratap Sakthivel'].map(name => (
+                        <div key={name} className="flex items-center gap-3 bg-zinc-50 border border-zinc-100 rounded-xl px-4 py-3">
+                          <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-black text-sm">{name[0]}</div>
+                          <span className="text-sm font-bold text-zinc-800">{name}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="bg-indigo-50/60 border border-indigo-100 rounded-2xl p-4 space-y-2">
+                      <p className="text-xs font-black text-indigo-700 uppercase tracking-widest">About</p>
+                      <p className="text-sm text-zinc-600 leading-relaxed">TaskForce VSBEC focuses on building practical academic solutions that improve student productivity, simplify task management, and support digital transformation within the college environment.</p>
+                      <p className="text-sm text-zinc-600 leading-relaxed">The team collaboratively worked on planning, design, development, testing, and deployment of the VSBEC Academic Task Management System.</p>
                     </div>
                   </div>
                 )}
