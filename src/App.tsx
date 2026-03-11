@@ -1870,7 +1870,7 @@ export default function App() {
                 <p className="text-zinc-600 dark:text-zinc-300 text-sm mb-6 whitespace-pre-wrap">{newTask.description || "No description provided."}</p>
 
                 {newTask.external_link && (
-                  <div className="mb-6">
+                  <div className="mb-6 inline-block mr-3">
                     <a
                       href={ensureExternalLink(newTask.external_link)}
                       target="_blank"
@@ -1879,6 +1879,14 @@ export default function App() {
                     >
                       <ExternalLink size={16} /> Visit External Link
                     </a>
+                  </div>
+                )}
+
+                {newTask.brochure && (
+                  <div className="mb-6 inline-block">
+                    <span className="inline-flex items-center gap-2 text-indigo-600 font-medium bg-indigo-50/50 px-3 py-1.5 rounded-lg border border-indigo-100 dark:bg-indigo-900/20 dark:border-indigo-800 dark:text-indigo-400">
+                      <FileText size={16} /> {newTask.brochure.name} (Ready to upload)
+                    </span>
                   </div>
                 )}
 
@@ -3412,22 +3420,27 @@ export default function App() {
                                 })()
                               )}
                             </div>
-                          )}                {(isAdmin || (isHOD && task.department_id === user?.department_id) || (isAdvisor && Array.isArray(task.class_ids) && task.class_ids.includes(Number(user?.class_id))) || (isCoordinator && Array.isArray(task.class_ids) && task.class_ids.includes(Number(user?.class_id)))) && (
-                            <div className="mt-6 flex gap-4 border-t border-zinc-100 pt-4">
-                              <Button
-                                variant="ghost"
-                                className="text-zinc-400 hover:text-zinc-900"
-                                onClick={() => toggleTaskStatus(task.id, task.status)}
-                              >
-                                {task.status === 'OPEN' ? 'Close Task' : 'Open Task'}
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                className="text-zinc-400 hover:text-red-500"
-                                onClick={() => deleteTask(task.id)}
-                              >
-                                <Trash2 size={18} /> Delete
-                              </Button>
+                          )}
+                          {(isAdmin || isHOD || isAdvisor || isCoordinator) && (
+                            <div className="mt-6 flex gap-4 border-t border-zinc-100 dark:border-zinc-800 pt-4">
+                              {(isAdmin || (isHOD && task.department_id === user?.department_id) || (isAdvisor && Array.isArray(task.class_ids) && task.class_ids.includes(Number(user?.class_id))) || (isCoordinator && Array.isArray(task.class_ids) && task.class_ids.includes(Number(user?.class_id)))) && (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    className="text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+                                    onClick={() => toggleTaskStatus(task.id, task.status)}
+                                  >
+                                    {task.status === 'OPEN' ? 'Close Task' : 'Open Task'}
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    className="text-zinc-400 hover:text-red-500"
+                                    onClick={() => deleteTask(task.id)}
+                                  >
+                                    <Trash2 size={18} /> Delete
+                                  </Button>
+                                </>
+                              )}
                               <Button
                                 variant="ghost"
                                 className="text-zinc-400 hover:text-blue-500 ml-auto"
