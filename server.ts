@@ -1363,9 +1363,8 @@ async function startServer() {
     // Only serve frontend if it exists locally (not needed for Render + Vercel stack)
     app.use(express.static(path.join(__dirname, 'dist')));
     // ─── Diagnostic Endpoints ──────────────────────────────────────────────────
-    app.get('/api/admin/test-email', authenticate, authorize(['SUPREME_ADMIN']), async (req, res) => {
+    app.get('/api/admin/test-email', authenticate, authorize(['SUPREME_ADMIN']), async (req: any, res: any) => {
       try {
-        const { sendWelcomeEmail } = await import('./src/utils/emailService.js');
         await sendWelcomeEmail(req.user.email || 'techforce.vsbec@gmail.com', req.user.full_name || 'Admin', req.user.role);
         res.json({ success: true, message: `Test email sent to ${req.user.email || 'techforce.vsbec@gmail.com'}` });
       } catch (err: any) {
