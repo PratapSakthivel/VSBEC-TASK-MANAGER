@@ -124,6 +124,7 @@ const taskSchema = new Schema({
   external_link: { type: String },
   deadline: { type: Date },
   screenshot_instruction: { type: String },
+  brochure_url: { type: String },
   custom_field_label: { type: String },
   created_by: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   department_id: { type: Schema.Types.ObjectId, ref: 'Department', default: null },
@@ -733,7 +734,7 @@ async function startServer() {
     screenshot_instruction: z.string().optional().nullable(),
     custom_field_label: z.string().optional().nullable(),
     department_id: z.union([z.string(), z.number(), z.null()]).optional(),
-    class_ids: z.array(z.any()).optional().nullable(),
+    class_ids: z.union([z.array(z.any()), z.string()]).optional().nullable(),
   });
 
   const submissionSchemaValidator = z.object({
@@ -741,7 +742,7 @@ async function startServer() {
     custom_field_value: z.string().optional()
   });
 
-  app.post('/api/tasks', authenticate, authorize(['SUPREME_ADMIN', 'HOD', 'CLASS_ADVISOR', 'STUDENT']), async (req: any, res) => {
+  app.post('/api/tasks', authenticate, authorize(['SUPREME_ADMIN', 'HOD', 'CLASS_ADVISOR', 'STUDENT']), upload.single('brochure'), async (req: any, res) => {
     try {
       taskSchemaValidator.parse(req.body);
     } catch (e: any) {
@@ -754,8 +755,18 @@ async function startServer() {
       console.error('Task validation failed:', errorMessage, '| Body:', JSON.stringify(req.body));
       return res.status(400).json({ error: errorMessage });
     }
-    const { title, description, category, external_link: rawLink, deadline, screenshot_instruction, custom_field_label, department_id, class_ids } = req.body;
 
+    // When using FormData, arrays might be sent as JSON strings
+    let parsedClassIds = [];
+    if (req.body.class_ids) {
+      if (typeof req.body.class_ids === 'string') {
+        try { parsedClassIds = JSON.parse(req.body.class_ids); } catch (e) { }
+      } else if (Array.isArray(req.body.class_ids)) {
+        parsedClassIds = req.body.class_ids;
+      }
+    }
+
+    const { title, description, category, external_link: rawLink, deadline, screenshot_instruction, custom_field_label, department_id } = req.body;
     let external_link = rawLink;
     if (external_link && !external_link.startsWith('http')) {
       external_link = `https://${external_link}`;
@@ -769,21 +780,21 @@ async function startServer() {
     if (!dbUser) return res.status(401).json({ error: 'User not found' });
 
     let deptId = department_id;
-    let clsIds = class_ids || [];
+    let clsIds = parsedClassIds;
 
     // Role-based restrictions
     if (dbUser.role === 'CLASS_ADVISOR' || (dbUser.role === 'STUDENT' && dbUser.is_coordinator)) {
       deptId = dbUser.department_id;
       // If NOT a year coordinator, OR specifically selected classes, or NOT a year-wide attempt
-      if (!dbUser.is_year_coordinator || (class_ids && class_ids.length > 0)) {
-        clsIds = (class_ids && class_ids.length > 0) ? class_ids : [dbUser.class_id];
+      if (!dbUser.is_year_coordinator || parsedClassIds.length > 0) {
+        clsIds = parsedClassIds.length > 0 ? parsedClassIds : [dbUser.class_id];
       }
     } else if (dbUser.role === 'HOD') {
       deptId = dbUser.department_id;
     }
 
     // Year Coordinator expansion
-    if (dbUser.is_year_coordinator && !department_id && (!class_ids || class_ids.length === 0)) {
+    if (dbUser.is_year_coordinator && !department_id && parsedClassIds.length === 0) {
       const yearClasses = await Class.find({ department_id: dbUser.department_id, year: dbUser.year_scope });
       if (yearClasses.length > 0) {
         clsIds = yearClasses.map(c => c._id);
@@ -791,10 +802,26 @@ async function startServer() {
     }
 
     try {
+      let brochure_url;
+      if (req.file) {
+        const uploadResult: any = await new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            { folder: 'vsbec-task-brochures', resource_type: 'auto' },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result);
+            }
+          );
+          stream.end(req.file.buffer);
+        });
+        brochure_url = uploadResult.secure_url;
+      }
+
       const t = await Task.create({
         title, description, category, external_link,
         deadline: deadline || null,
         screenshot_instruction, custom_field_label,
+        brochure_url,
         created_by: req.user.id,
         department_id: deptId || null,
         class_ids: clsIds,

@@ -33,7 +33,8 @@ import {
   CalendarRange,
   Menu,
   Sun,
-  Moon
+  Moon,
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
@@ -101,6 +102,7 @@ interface Task {
   created_at: string;
   submission_status?: string;
   submission_count?: number;
+  brochure_url?: string;
 }
 
 interface Submission {
@@ -194,6 +196,8 @@ interface CoordinatorStats {
 }
 
 import * as XLSX from 'xlsx';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 // --- Components ---
 
@@ -456,8 +460,8 @@ export default function App() {
     deadline: '',
     screenshot_instruction: '',
     custom_field_label: '',
-    department_id: '',
-    class_ids: []
+    class_ids: [] as number[],
+    brochure: null as File | null
   });
   const [uploading, setUploading] = useState<number | null>(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -914,13 +918,25 @@ export default function App() {
 
   const createTask = async () => {
     try {
+      const formData = new FormData();
+      formData.append('title', newTask.title);
+      formData.append('description', newTask.description);
+      formData.append('category', newTask.category);
+      if (newTask.external_link) formData.append('external_link', newTask.external_link);
+      if (newTask.deadline) formData.append('deadline', newTask.deadline);
+      formData.append('screenshot_instruction', newTask.screenshot_instruction);
+      formData.append('custom_field_label', newTask.custom_field_label);
+      if (newTask.department_id) formData.append('department_id', newTask.department_id);
+      if (newTask.class_ids.length > 0) formData.append('class_ids', JSON.stringify(newTask.class_ids));
+      if (newTask.brochure) formData.append('brochure', newTask.brochure);
+
       const res = await fetch(`${API_URL}/api/tasks`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(newTask)
+        headers: { Authorization: `Bearer ${token}` }, // Note: Do NOT set Content-Type for FormData, browser does it automatically with boundary
+        body: formData
       });
       if (res.ok) {
-        setNewTask({ title: '', description: '', category: 'Competition', external_link: '', deadline: '', screenshot_instruction: '', custom_field_label: '', department_id: '', class_ids: [] });
+        setNewTask({ title: '', description: '', category: 'Competition', external_link: '', deadline: '', screenshot_instruction: '', custom_field_label: '', department_id: '', class_ids: [], brochure: null });
         setShowTaskPreview(false);
         addToast('Task created successfully!', 'success');
         fetchTasks();
@@ -1252,6 +1268,70 @@ export default function App() {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(taskSummary.length ? taskSummary : [{ Info: 'No tasks found.' }]), 'Task Summary');
     XLSX.writeFile(wb, `${className}_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
     setShowExportModal(false);
+  };
+
+  const downloadProofs = async (taskId: number, taskTitle: string, userFilter?: string) => {
+    try {
+      addToast(`Preparing ZIP for "${taskTitle}"... This may take a moment.`, 'info');
+
+      const zip = new JSZip();
+      const folder = zip.folder(`Proofs_${taskTitle.replace(/[^a-zA-Z0-9]/g, '_')}`);
+
+      if (!folder) throw new Error("Could not create ZIP folder");
+
+      let relevantSubmissions = submissions.filter(s => s.task_id === taskId && s.screenshot_url);
+
+      // If a specific class or user filter is applied (like a coordinator's own class)
+      if (userFilter) {
+        relevantSubmissions = relevantSubmissions.filter(s => s.class_id?.toString() === userFilter);
+      } else if (isAdvisor || isCoordinator) {
+        // Default to scope
+        relevantSubmissions = relevantSubmissions.filter(s => s.class_id?.toString() === user?.class_id?.toString());
+      }
+
+      if (relevantSubmissions.length === 0) {
+        addToast("No proof screenshots found for this task.", "info");
+        return;
+      }
+
+      let downloadedCount = 0;
+
+      // Fetch and add each image to the ZIP
+      await Promise.all(relevantSubmissions.map(async (sub) => {
+        try {
+          // Fetch the image from Cloudinary (need to add anonymous or cors proxy if restricted, but usually public urls work)
+          const response = await fetch(sub.screenshot_url);
+          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+          const blob = await response.blob();
+
+          // Determine extension from content type or default to jpg
+          let ext = 'jpg';
+          if (blob.type === 'image/png') ext = 'png';
+          else if (blob.type === 'application/pdf') ext = 'pdf';
+
+          const filename = `${sub.register_number || sub.student_name || 'Unknown'}_${sub.status}.${ext}`;
+
+          folder.file(filename, blob);
+          downloadedCount++;
+        } catch (err) {
+          console.error(`Failed to download proof for ${sub.student_name}:`, err);
+        }
+      }));
+
+      if (downloadedCount === 0) {
+        addToast("Failed to fetch any proof images.", "error");
+        return;
+      }
+
+      addToast(`Zipping ${downloadedCount} files...`, 'info');
+      const content = await zip.generateAsync({ type: 'blob' });
+      saveAs(content, `${taskTitle}_Proofs.zip`);
+      addToast("Download complete!", "success");
+
+    } catch (err) {
+      console.error(err);
+      addToast("An error occurred while creating the ZIP file.", "error");
+    }
   };
 
   if (!token) {
@@ -2978,6 +3058,21 @@ export default function App() {
                             onChange={e => setNewTask(prev => ({ ...prev, custom_field_label: e.target.value }))}
                             required
                           />
+                          <div className="w-full">
+                            <label className="text-sm font-bold text-zinc-700 dark:text-zinc-300 mb-1 block">Event Brochure (Optional)</label>
+                            <input
+                              type="file"
+                              accept="image/*,.pdf"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) setNewTask(prev => ({ ...prev, brochure: file }));
+                              }}
+                              className="w-full text-sm text-zinc-500 dark:text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-zinc-100 dark:file:bg-zinc-800 file:text-zinc-700 dark:file:text-zinc-300 hover:file:bg-zinc-200 dark:hover:file:bg-zinc-700 transition"
+                            />
+                            {newTask.brochure && (
+                              <p className="text-xs text-emerald-600 mt-2 font-medium bg-emerald-50 max-w-fit px-2 py-1 rounded">Selected: {newTask.brochure.name}</p>
+                            )}
+                          </div>
 
                           {isAdmin && (
                             <select
@@ -3136,7 +3231,7 @@ export default function App() {
                           <p className="text-zinc-600 dark:text-zinc-300 text-sm mb-6 whitespace-pre-wrap">{task.description}</p>
 
                           {task.external_link && (
-                            <div className="mb-6">
+                            <div className="mb-6 inline-block mr-3">
                               <a
                                 href={ensureExternalLink(task.external_link)}
                                 target="_blank"
@@ -3144,6 +3239,19 @@ export default function App() {
                                 className="inline-flex items-center gap-2 text-blue-600 hover:underline text-sm font-medium bg-blue-50/50 px-3 py-1.5 rounded-lg border border-blue-100"
                               >
                                 <ExternalLink size={16} /> Visit External Link
+                              </a>
+                            </div>
+                          )}
+
+                          {task.brochure_url && (
+                            <div className="mb-6 inline-block">
+                              <a
+                                href={task.brochure_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 text-indigo-600 hover:underline text-sm font-medium bg-indigo-50/50 px-3 py-1.5 rounded-lg border border-indigo-100 dark:bg-indigo-900/20 dark:border-indigo-800 dark:text-indigo-400"
+                              >
+                                <FileText size={16} /> View Brochure
                               </a>
                             </div>
                           )}
@@ -3319,6 +3427,14 @@ export default function App() {
                                 onClick={() => deleteTask(task.id)}
                               >
                                 <Trash2 size={18} /> Delete
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                className="text-zinc-400 hover:text-blue-500 ml-auto"
+                                onClick={() => downloadProofs(task.id, task.title, isAdvisor || isCoordinator ? user?.class_id?.toString() : undefined)}
+                                title="Download Proof Images as ZIP"
+                              >
+                                <FileDown size={18} /> ZIP Proofs
                               </Button>
                             </div>
                           )}
@@ -3813,14 +3929,28 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="flex gap-4 pt-4">
-                    <Button variant="ghost" onClick={() => setShowExportModal(false)} className="flex-1 rounded-2xl">Cancel</Button>
-                    <Button
-                      onClick={() => isHOD ? exportToExcel(reportFilters) : exportToExcelForClass(reportFilters)}
-                      className="flex-2 rounded-2xl bg-black hover:bg-zinc-800 text-white flex items-center justify-center gap-2"
-                    >
-                      <FileDown size={18} /> Download Excel
-                    </Button>
+                  <div className="flex flex-col gap-4 pt-4">
+                    <div className="flex gap-4">
+                      <Button variant="ghost" onClick={() => setShowExportModal(false)} className="flex-1 rounded-2xl">Cancel</Button>
+                      <Button
+                        onClick={() => isHOD ? exportToExcel(reportFilters) : exportToExcelForClass(reportFilters)}
+                        className="flex-2 rounded-2xl bg-black hover:bg-zinc-800 text-white flex items-center justify-center gap-2"
+                      >
+                        <FileDown size={18} /> Excel Report
+                      </Button>
+                    </div>
+                    {reportFilters.taskId && (
+                      <Button
+                        onClick={() => {
+                          const task = tasks.find(t => t.id?.toString() === reportFilters.taskId);
+                          if (task) downloadProofs(task.id, task.title, reportFilters.classId);
+                        }}
+                        variant="secondary"
+                        className="w-full rounded-2xl flex items-center justify-center gap-2 border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:border-indigo-900 dark:text-indigo-300 dark:bg-indigo-900/20"
+                      >
+                        <FileDown size={18} /> Download Proof Images (ZIP)
+                      </Button>
+                    )}
                   </div>
                 </div>
               </motion.div>
