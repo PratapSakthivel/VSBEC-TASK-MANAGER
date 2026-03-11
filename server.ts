@@ -12,6 +12,8 @@ import { v2 as cloudinary } from 'cloudinary';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import fs from 'fs';
 import { z } from 'zod';
+import { sendWelcomeEmail, sendTaskAssignmentEmail } from './src/utils/emailService.js';
+import { startDeadlineReminderJob } from './src/jobs/deadlineReminder.js';
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -62,6 +64,8 @@ const connectDB = async () => {
 
     const conn = await mongoose.connect(process.env.MONGODB_URI || '');
     console.log(`MongoDB Connected: ${conn.connection.host}`);
+    // Start the hourly deadline reminder cron job after DB is ready
+    startDeadlineReminderJob();
   } catch (error: any) {
     console.error(`MongoDB Error: ${error.message}`);
     process.exit(1);
@@ -130,6 +134,7 @@ const taskSchema = new Schema({
   department_id: { type: Schema.Types.ObjectId, ref: 'Department', default: null },
   class_ids: [{ type: Schema.Types.ObjectId, ref: 'Class' }],
   status: { type: String, default: 'OPEN' }, // 'OPEN','CLOSED'
+  reminderSent: { type: Boolean, default: false },
 }, { timestamps: true });
 taskSchema.index({ department_id: 1 });
 taskSchema.index({ class_ids: 1 });
@@ -549,6 +554,10 @@ async function startServer() {
         year_scope: year_scope || null,
       });
       await u.save();
+      // Send welcome email (non-blocking — failure won't affect response)
+      if (email?.trim()) {
+        sendWelcomeEmail(email.trim(), full_name?.trim() || username.trim(), userRole);
+      }
       res.json({ id: u._id, username, role: userRole, department_id: deptId, class_id: clsId, full_name, email, register_number });
     } catch (e: any) {
       const isDuplicate = e.code === 11000;
@@ -828,6 +837,33 @@ async function startServer() {
         class_ids: clsIds,
       });
       res.json(t);
+
+      // Send task assignment emails to all target students (non-blocking)
+      try {
+        let studentQuery: any = { role: 'STUDENT', is_active: { $ne: false } };
+        if (clsIds && clsIds.length > 0) {
+          studentQuery.class_id = { $in: clsIds };
+        } else if (deptId) {
+          studentQuery.department_id = deptId;
+        }
+        const targetStudents: any[] = await User.find(studentQuery).select('email full_name username');
+        const creator = await User.findById(req.user.id).select('full_name username');
+        const creatorName = (creator as any)?.full_name || (creator as any)?.username || 'Coordinator';
+        for (const student of targetStudents) {
+          if (student.email) {
+            sendTaskAssignmentEmail(
+              student.email,
+              student.full_name || student.username,
+              title,
+              description || '',
+              deadline || null,
+              creatorName
+            );
+          }
+        }
+      } catch (emailErr: any) {
+        console.error('[EMAIL] Task assignment email error:', emailErr.message);
+      }
     } catch (err: any) {
       console.error("Task Creation Error DB:", err);
       res.status(500).json({ error: err.message || 'Failed to create task' });
