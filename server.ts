@@ -1,3 +1,5 @@
+import dotenv from 'dotenv';
+dotenv.config();
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
@@ -6,7 +8,6 @@ import mongoose, { Schema, Document, Types } from 'mongoose';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import multer from 'multer';
 import { v2 as cloudinary } from 'cloudinary';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
@@ -14,7 +15,6 @@ import fs from 'fs';
 import { z } from 'zod';
 import { sendWelcomeEmail, sendTaskAssignmentEmail } from './src/utils/emailService.js';
 import { startDeadlineReminderJob } from './src/jobs/deadlineReminder.js';
-dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

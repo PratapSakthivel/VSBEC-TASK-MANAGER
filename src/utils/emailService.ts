@@ -1,29 +1,39 @@
 import nodemailer from 'nodemailer';
 
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
+let _transporter: any = null;
+
+const getTransporter = () => {
+  if (!_transporter) {
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_APP_PASS) {
+      console.warn('[EMAIL] ⚠️ EMAIL_USER or EMAIL_APP_PASS is missing in environment variables.');
+    }
+    _transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_APP_PASS,
-    },
-});
+      },
+    });
+  }
+  return _transporter;
+};
 
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
 // ── Shared email wrapper ─────────────────────────────────────────────────────
 const sendMail = async (to: string, subject: string, html: string) => {
-    try {
-        await transporter.sendMail({
-            from: `"Academic Task Manager 🎓" <${process.env.EMAIL_USER}>`,
-            to,
-            subject,
-            html,
-        });
-        console.log(`[EMAIL] ✅ Sent "${subject}" to ${to}`);
-    } catch (err: any) {
-        console.error(`[EMAIL] ❌ Failed to send "${subject}" to ${to}: ${err.message}`);
-        // Never rethrow — email failures should not crash the app
-    }
+  try {
+    await getTransporter().sendMail({
+      from: `"Academic Task Manager 🎓" <${process.env.EMAIL_USER}>`,
+      to,
+      subject,
+      html,
+    });
+    console.log(`[EMAIL] ✅ Sent "${subject}" to ${to}`);
+  } catch (err: any) {
+    console.error(`[EMAIL] ❌ Failed to send "${subject}" to ${to}: ${err.message}`);
+    // Never rethrow — email failures should not crash the app
+  }
 };
 
 // ── Shared HTML wrapper ──────────────────────────────────────────────────────
@@ -73,14 +83,14 @@ const wrapHtml = (content: string) => `
 
 // ── 1. Welcome Email ─────────────────────────────────────────────────────────
 export const sendWelcomeEmail = async (to: string, name: string, role: string) => {
-    const roleLabel: Record<string, string> = {
-        STUDENT: 'Student',
-        CLASS_ADVISOR: 'Class Advisor',
-        HOD: 'Head of Department',
-        SUPREME_ADMIN: 'System Administrator',
-    };
+  const roleLabel: Record<string, string> = {
+    STUDENT: 'Student',
+    CLASS_ADVISOR: 'Class Advisor',
+    HOD: 'Head of Department',
+    SUPREME_ADMIN: 'System Administrator',
+  };
 
-    const content = `
+  const content = `
     <h2 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#18181b;">Welcome, ${name}! 👋</h2>
     <p style="margin:0 0 24px;font-size:15px;color:#71717a;">Your account has been created on the VSBEC Academic Task Management System.</p>
 
@@ -107,23 +117,23 @@ export const sendWelcomeEmail = async (to: string, name: string, role: string) =
     </a>
   `;
 
-    await sendMail(to, `Welcome to Academic Task Manager, ${name}!`, wrapHtml(content));
+  await sendMail(to, `Welcome to Academic Task Manager, ${name}!`, wrapHtml(content));
 };
 
 // ── 2. Task Assignment Email ─────────────────────────────────────────────────
 export const sendTaskAssignmentEmail = async (
-    to: string,
-    studentName: string,
-    taskTitle: string,
-    taskDescription: string,
-    dueDate: string | null,
-    assignedBy: string
+  to: string,
+  studentName: string,
+  taskTitle: string,
+  taskDescription: string,
+  dueDate: string | null,
+  assignedBy: string
 ) => {
-    const dueDateDisplay = dueDate
-        ? new Date(dueDate).toLocaleString('en-IN', { dateStyle: 'long', timeStyle: 'short' })
-        : 'No deadline set';
+  const dueDateDisplay = dueDate
+    ? new Date(dueDate).toLocaleString('en-IN', { dateStyle: 'long', timeStyle: 'short' })
+    : 'No deadline set';
 
-    const content = `
+  const content = `
     <h2 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#18181b;">New Task Assigned 📋</h2>
     <p style="margin:0 0 24px;font-size:15px;color:#71717a;">Hi ${studentName}, a new task has been assigned to you.</p>
 
@@ -162,23 +172,23 @@ export const sendTaskAssignmentEmail = async (
     </a>
   `;
 
-    await sendMail(to, `New Task: ${taskTitle}`, wrapHtml(content));
+  await sendMail(to, `New Task: ${taskTitle}`, wrapHtml(content));
 };
 
 // ── 3. Deadline Reminder Email ───────────────────────────────────────────────
 export const sendDeadlineReminderEmail = async (
-    to: string,
-    studentName: string,
-    taskTitle: string,
-    dueDate: string,
-    hoursLeft: number
+  to: string,
+  studentName: string,
+  taskTitle: string,
+  dueDate: string,
+  hoursLeft: number
 ) => {
-    const isUrgent = hoursLeft <= 24;
-    const accentColor = isUrgent ? '#ef4444' : '#f97316';
-    const urgencyLabel = isUrgent ? '🔴 URGENT — Due in less than 24 hours!' : '🟠 Reminder — Due in less than 48 hours';
-    const dueDateDisplay = new Date(dueDate).toLocaleString('en-IN', { dateStyle: 'long', timeStyle: 'short' });
+  const isUrgent = hoursLeft <= 24;
+  const accentColor = isUrgent ? '#ef4444' : '#f97316';
+  const urgencyLabel = isUrgent ? '🔴 URGENT — Due in less than 24 hours!' : '🟠 Reminder — Due in less than 48 hours';
+  const dueDateDisplay = new Date(dueDate).toLocaleString('en-IN', { dateStyle: 'long', timeStyle: 'short' });
 
-    const content = `
+  const content = `
     <h2 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#18181b;">Deadline Reminder ⏰</h2>
     <p style="margin:0 0 24px;font-size:15px;color:#71717a;">Hi ${studentName}, this is a reminder about an upcoming task deadline.</p>
 
@@ -208,5 +218,5 @@ export const sendDeadlineReminderEmail = async (
     </a>
   `;
 
-    await sendMail(to, `⏰ Deadline Reminder: ${taskTitle}`, wrapHtml(content));
+  await sendMail(to, `⏰ Deadline Reminder: ${taskTitle}`, wrapHtml(content));
 };
