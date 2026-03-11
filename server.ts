@@ -532,7 +532,7 @@ async function startServer() {
     }
 
     const finalPassword = (password || register_number || username || "").toString().trim();
-    const mustChange = (req.user.role === 'CLASS_ADVISOR' || userRole === 'STUDENT') ? true : false;
+    const mustChange = (req.user.role === 'CLASS_ADVISOR' || userRole === 'STUDENT' || userRole === 'CLASS_ADVISOR') ? true : false;
 
     try {
       const u = new User({
