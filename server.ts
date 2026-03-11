@@ -583,6 +583,10 @@ async function startServer() {
           register_number: regNo, must_change_password: true,
         });
         await u.save();
+        // Send welcome email (non-blocking)
+        if (s.email?.trim()) {
+          sendWelcomeEmail(s.email.trim(), s.name?.trim() || regNo, 'STUDENT');
+        }
         success++;
       } catch { failed++; }
     }
@@ -1358,7 +1362,24 @@ async function startServer() {
   } else if (fs.existsSync(path.join(__dirname, 'dist'))) {
     // Only serve frontend if it exists locally (not needed for Render + Vercel stack)
     app.use(express.static(path.join(__dirname, 'dist')));
-    app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'dist/index.html')));
+    // ─── Diagnostic Endpoints ──────────────────────────────────────────────────
+    app.get('/api/admin/test-email', authenticate, authorize(['SUPREME_ADMIN']), async (req, res) => {
+      try {
+        const { sendWelcomeEmail } = await import('./src/utils/emailService.js');
+        await sendWelcomeEmail(req.user.email || 'techforce.vsbec@gmail.com', req.user.full_name || 'Admin', req.user.role);
+        res.json({ success: true, message: `Test email sent to ${req.user.email || 'techforce.vsbec@gmail.com'}` });
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    app.get('*', (req, res) => {
+      if (fs.existsSync(path.join(__dirname, 'dist/index.html'))) {
+        res.sendFile(path.join(__dirname, 'dist/index.html'));
+      } else {
+        res.status(404).send('Not Found');
+      }
+    });
   }
 
   // ── Global Error Handler ─────────────────────────────────────────────────────
