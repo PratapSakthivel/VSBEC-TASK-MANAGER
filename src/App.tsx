@@ -1512,14 +1512,17 @@ export default function App() {
             });
           }
 
-          // Save to backend
+          // Convert to JSON explicitly for reliability
+          const subscriptionData = subscription.toJSON();
+
+          // Save to backend (always send to ensure DB has it)
           await fetch(`${API_URL}/api/push/subscribe`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify({ subscription })
+            body: JSON.stringify({ subscription: subscriptionData })
           });
           console.log('Push subscription saved');
         } catch (err) {

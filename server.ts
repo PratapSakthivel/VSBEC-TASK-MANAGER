@@ -682,6 +682,7 @@ async function startServer() {
     if (!subscription) return res.status(400).json({ error: 'Subscription is required' });
 
     try {
+      console.log(`[PUSH] Subscribing user ${req.user.username} - Endpoint: ${subscription.endpoint?.substring(0, 30)}...`);
       await User.findByIdAndUpdate(req.user.id, {
         $addToSet: { push_subscriptions: subscription }
       });
@@ -700,6 +701,33 @@ async function startServer() {
         $pull: { push_subscriptions: { endpoint: subscription.endpoint } }
       });
       res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Diagnostic Test Push
+  app.get('/api/admin/test-push', authenticate, authorize(['SUPREME_ADMIN']), async (req: any, res) => {
+    try {
+      const dbUser: any = await User.findById(req.user.id);
+      if (!dbUser) return res.status(404).json({ error: 'User not found' });
+
+      if (!dbUser.push_subscriptions || dbUser.push_subscriptions.length === 0) {
+        return res.json({ 
+          success: false, 
+          message: 'No push subscriptions found for your account. Please ensure you clicked "Allow" in the browser and refreshed the page.' 
+        });
+      }
+
+      console.log(`[PUSH] Sending test notification to user ${dbUser.username} (${dbUser.push_subscriptions.length} devices)`);
+      const results = await notifyUserByPush(dbUser, 'Diagnostic Test', 'If you see this, Web Push is working!', '/');
+      
+      res.json({ 
+        success: true, 
+        message: 'Test push triggered', 
+        device_count: dbUser.push_subscriptions.length,
+        results 
+      });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

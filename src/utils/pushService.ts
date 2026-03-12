@@ -28,12 +28,15 @@ export const sendPushNotification = async (subscription: any, title: string, bod
     await webpush.sendNotification(subscription, payload);
     return { success: true };
   } catch (error: any) {
+    console.error(`[PUSH ERROR] Device: ${subscription.endpoint}`);
+    console.error(`[PUSH ERROR] Status: ${error.statusCode}`);
+    console.error(`[PUSH ERROR] Body: ${error.body}`);
+    
     if (error.statusCode === 404 || error.statusCode === 410) {
       // Subscription has expired or is no longer valid
       return { success: false, expired: true };
     }
-    console.error('Push Notification Error:', error);
-    return { success: false, error };
+    return { success: false, error: error.message };
   }
 };
 
