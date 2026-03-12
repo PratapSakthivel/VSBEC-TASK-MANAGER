@@ -45,6 +45,17 @@ const ensureExternalLink = (url: string) => {
   return url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
 };
 
+const urlBase64ToUint8Array = (base64String: string) => {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+};
+
 // --- Types ---
 interface YearStats {
   total_students: number;
@@ -1469,6 +1480,56 @@ export default function App() {
       </div>
     );
   }
+
+  // This useEffect is assumed to exist or be added based on the instruction's context
+  useEffect(() => {
+    if (user) {
+      setView('dashboard');
+    }
+  }, [user]);
+
+  // --- Push Notification Registration ---
+  useEffect(() => {
+    if (user && token && 'serviceWorker' in navigator && 'PushManager' in window) {
+      const VAPID_PUBLIC_KEY = 'BBcFII7f___Q7_JNy-9WF1amU-TyHWTK8HBAK9UBpwuFl8GEyKcsW-_d7rebs1ndhsggff-CiInNW-_3RzHtYY8';
+
+      const registerPush = async () => {
+        try {
+          // Register service worker
+          const registration = await navigator.serviceWorker.register('/sw.js');
+          console.log('Service Worker registered');
+
+          // Ensure permission
+          const permission = await Notification.requestPermission();
+          if (permission !== 'granted') return;
+
+          // Subscribe
+          let subscription = await registration.pushManager.getSubscription();
+          if (!subscription) {
+            subscription = await registration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+            });
+          }
+
+          // Save to backend
+          await fetch(`${API_URL}/api/push/subscribe`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ subscription })
+          });
+          console.log('Push subscription saved');
+        } catch (err) {
+          console.error('Push registration failed:', err);
+        }
+      };
+
+      registerPush();
+    }
+  }, [user, token]);
 
   const isAdmin = user?.role === 'SUPREME_ADMIN';
   const isHOD = user?.role === 'HOD';

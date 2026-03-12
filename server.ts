@@ -14,6 +14,7 @@ import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import fs from 'fs';
 import { z } from 'zod';
 import { sendWelcomeEmail, sendTaskAssignmentEmail } from './src/utils/emailService.js';
+import { notifyUserByPush } from './src/utils/pushService.js';
 import { startDeadlineReminderJob } from './src/jobs/deadlineReminder.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -104,6 +105,15 @@ const userSchema = new Schema({
   year_scope: { type: Number, default: null },
   must_change_password: { type: Boolean, default: true },
   is_active: { type: Boolean, default: true },
+  push_subscriptions: [
+    {
+      endpoint: String,
+      keys: {
+        p256dh: String,
+        auth: String
+      }
+    }
+  ]
 }, { timestamps: true });
 
 // Hash password on save, and normalize empty strings to undefined (removes from DB)
@@ -666,6 +676,35 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  // ── Push Notifications ───────────────────────────────────────────────────
+  app.post('/api/push/subscribe', authenticate, async (req: any, res) => {
+    const { subscription } = req.body;
+    if (!subscription) return res.status(400).json({ error: 'Subscription is required' });
+
+    try {
+      await User.findByIdAndUpdate(req.user.id, {
+        $addToSet: { push_subscriptions: subscription }
+      });
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/push/unsubscribe', authenticate, async (req: any, res) => {
+    const { subscription } = req.body;
+    if (!subscription) return res.status(400).json({ error: 'Subscription is required' });
+
+    try {
+      await User.findByIdAndUpdate(req.user.id, {
+        $pull: { push_subscriptions: { endpoint: subscription.endpoint } }
+      });
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // ── Tasks ─────────────────────────────────────────────────────────────────
   const populateTask = (q: any) => q
     .populate('created_by', 'full_name')
@@ -864,9 +903,11 @@ async function startServer() {
               creatorName
             );
           }
+          // Also send Web Push Notification
+          notifyUserByPush(student, 'New Task Assigned', `"${title}" assigned by ${creatorName}`, '/tasks');
         }
       } catch (emailErr: any) {
-        console.error('[EMAIL] Task assignment email error:', emailErr.message);
+        console.error('[NOTIFY] Task notification error:', emailErr.message);
       }
     } catch (err: any) {
       console.error("Task Creation Error DB:", err);
