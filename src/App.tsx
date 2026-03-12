@@ -892,6 +892,7 @@ export default function App() {
           setShowPasswordModal(true);
         }
         setView('dashboard');
+        setIsLoading(false);
       } else {
         setError(data.error || 'Failed to login');
         setIsLoading(false);
@@ -917,7 +918,7 @@ export default function App() {
     setSubmissions([]);
     setDepartments([]);
     setClasses([]);
-    setIsLoading(true);
+    setIsLoading(false);
     
     setView('dashboard');
   };
