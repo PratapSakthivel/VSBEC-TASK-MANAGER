@@ -2719,15 +2719,13 @@ export default function App() {
                         onChange={e => setNewUser(prev => ({ ...prev, full_name: e.target.value }))}
                         required
                       />
-                      {isAdvisor && (
-                        <Input
-                          type="email"
-                          placeholder="Email Address"
-                          value={newUser.email}
-                          onChange={e => setNewUser(prev => ({ ...prev, email: e.target.value }))}
-                          required
-                        />
-                      )}
+                      <Input
+                        type="email"
+                        placeholder="Email Address"
+                        value={newUser.email}
+                        onChange={e => setNewUser(prev => ({ ...prev, email: e.target.value }))}
+                        required
+                      />
                       {isAdmin ? (
                         <select
                           className="w-full px-4 py-2 rounded-lg border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all bg-white"
