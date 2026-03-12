@@ -209,22 +209,19 @@ async function seedData() {
         }
 
         // 3. Password Alignment: Surgical Sync for ALL ROLES
-        // We ensure ANY user who hasn't finalized their account yet gets a valid default password.
+        // Only rehash if the stored password is plain text (not already a bcrypt hash).
+        // bcrypt hashes always start with $2a$ or $2b$ — so we can skip the slow compareSync entirely.
         if (u.username !== 'admin') {
-          // If must_change_password is NOT false, they are in a "default" or "reset" state.
           const needsSync = (u.must_change_password !== false);
+          const isAlreadyHashed = (u.password || '').startsWith('$2a$') || (u.password || '').startsWith('$2b$');
 
-          if (needsSync) {
+          if (needsSync && !isAlreadyHashed) {
             const defaultPass = cleanRegNo || cleanUsername;
             if (defaultPass) {
-              const newHash = bcrypt.hashSync(defaultPass, 10);
-              // Only update if current hash doesn't match the default (prevents re-hashing loops)
-              if (!bcrypt.compareSync(defaultPass, u.password || '')) {
-                u.password = newHash;
-                u.must_change_password = true;
-                changed = true;
-                console.log(`[SYNC] Initialized password for ${u.role}: ${u.username}`);
-              }
+              u.password = bcrypt.hashSync(defaultPass, 10);
+              u.must_change_password = true;
+              changed = true;
+              console.log(`[SYNC] Initialized password for ${u.role}: ${u.username}`);
             }
           }
         }
