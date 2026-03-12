@@ -817,6 +817,7 @@ export default function App() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
     try {
       const res = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
@@ -835,9 +836,11 @@ export default function App() {
         setView('dashboard');
       } else {
         setError(data.error || 'Failed to login');
+        setIsLoading(false);
       }
     } catch (e) {
       setError(`Connection failed: ${e instanceof Error ? e.message : String(e)}. Check console and VITE_API_BASE_URL: ${API_URL}`);
+      setIsLoading(false);
       console.error('Login error:', e);
     }
   };
@@ -849,6 +852,15 @@ export default function App() {
     setUser(null);
     setLoginRole(null);
     setLoginData({ username: '', password: '' });
+    
+    // Reset all data and set loading state for next login
+    setUsers([]);
+    setTasks([]);
+    setSubmissions([]);
+    setDepartments([]);
+    setClasses([]);
+    setIsLoading(true);
+    
     setView('dashboard');
   };
 
