@@ -40,6 +40,22 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
 
 // --- Helpers ---
+const fetchWithTimeout = async (resource: string, options: any = {}, timeout = 6000) => {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetch(resource, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(id);
+    return response;
+  } catch (error) {
+    clearTimeout(id);
+    throw error;
+  }
+};
+
 const ensureExternalLink = (url: string) => {
   if (!url) return '';
   return url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
@@ -530,24 +546,29 @@ export default function App() {
   const fetchInitialData = async () => {
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      // Fire all requests in parallel
+      
+      // Phase 1: Fetch Core Lists (Essential for Dashboard rendering)
+      // These are usually fast and indexed.
       const [deptsRes, classesRes, usersRes, tasksRes, submissionsRes, notificationsRes] = await Promise.all([
-        fetch(`${API_URL}/api/departments`, { headers }),
-        fetch(`${API_URL}/api/classes`, { headers }),
-        fetch(`${API_URL}/api/users`, { headers }),
-        fetch(`${API_URL}/api/tasks`, { headers }),
-        fetch(`${API_URL}/api/submissions`, { headers }),
-        fetch(`${API_URL}/api/notifications`, { headers })
-      ]);
+        fetchWithTimeout(`${API_URL}/api/departments`, { headers }),
+        fetchWithTimeout(`${API_URL}/api/classes`, { headers }),
+        fetchWithTimeout(`${API_URL}/api/users`, { headers }),
+        fetchWithTimeout(`${API_URL}/api/tasks`, { headers }),
+        fetchWithTimeout(`${API_URL}/api/submissions`, { headers }),
+        fetchWithTimeout(`${API_URL}/api/notifications`, { headers })
+      ]).catch(err => {
+        console.error("Core fetch failed", err);
+        return [null, null, null, null, null, null] as any[];
+      });
 
-      // Parse JSON in parallel too
+      // Parse JSON
       const [depts, classes, users, tasks, submissions, notifications] = await Promise.all([
-        deptsRes.ok ? deptsRes.json() : Promise.resolve(null),
-        classesRes.ok ? classesRes.json() : Promise.resolve(null),
-        usersRes.ok ? usersRes.json() : Promise.resolve(null),
-        tasksRes.ok ? tasksRes.json() : Promise.resolve(null),
-        submissionsRes.ok ? submissionsRes.json() : Promise.resolve(null),
-        notificationsRes.ok ? notificationsRes.json() : Promise.resolve(null),
+        deptsRes?.ok ? deptsRes.json() : Promise.resolve(null),
+        classesRes?.ok ? classesRes.json() : Promise.resolve(null),
+        usersRes?.ok ? usersRes.json() : Promise.resolve(null),
+        tasksRes?.ok ? tasksRes.json() : Promise.resolve(null),
+        submissionsRes?.ok ? submissionsRes.json() : Promise.resolve(null),
+        notificationsRes?.ok ? notificationsRes.json() : Promise.resolve(null),
       ]);
 
       if (depts && Array.isArray(depts)) setDepartments(depts);
@@ -562,40 +583,43 @@ export default function App() {
         const parsedUser = JSON.parse(savedUser);
 
         try {
-          const meRes = await fetch(`${API_URL}/api/auth/me`, {
+          const meRes = await fetchWithTimeout(`${API_URL}/api/auth/me`, {
             headers: { Authorization: `Bearer ${token}` }
           });
+          
           if (meRes.ok) {
             const freshUser = await meRes.json();
             setUser(freshUser);
             sessionStorage.setItem('user', JSON.stringify(freshUser));
             
-            // Queue all stats fetches and await them all
-            const statsPromises: Promise<any>[] = [];
-            if (freshUser.role === 'HOD') statsPromises.push(fetchHODStats());
+            // Phase 2: Show Dashboard immediately (Progressive Loading)
+            setIsLoading(false);
+
+            // Phase 3: Fetch Complex Stats in background
+            if (freshUser.role === 'HOD') fetchHODStats();
             if (freshUser.role === 'CLASS_ADVISOR' || (freshUser.role === 'STUDENT' && freshUser.is_coordinator)) {
-              if (freshUser.role === 'CLASS_ADVISOR') statsPromises.push(fetchAdvisorStats());
-              if (freshUser.role === 'STUDENT' && freshUser.is_coordinator) statsPromises.push(fetchCoordinatorStats());
-              statsPromises.push(fetchMyClass());
+              if (freshUser.role === 'CLASS_ADVISOR') fetchAdvisorStats();
+              if (freshUser.role === 'STUDENT' && freshUser.is_coordinator) fetchCoordinatorStats();
+              fetchMyClass();
             }
-            if (freshUser.role === 'STUDENT') statsPromises.push(fetchStudentStats());
-            if (freshUser.is_year_coordinator) statsPromises.push(fetchYearStats());
-            
-            await Promise.all(statsPromises);
+            if (freshUser.role === 'STUDENT') fetchStudentStats();
+            if (freshUser.is_year_coordinator) fetchYearStats();
             
             if (freshUser.must_change_password) setShowPasswordModal(true);
+            return; // Exit early as we've already set isLoading(false)
           } else {
             setUser(parsedUser);
             if (parsedUser.must_change_password) setShowPasswordModal(true);
           }
         } catch (err) {
+          console.warn("Auth refresh failed, using session data", err);
           setUser(parsedUser);
         }
       }
       setIsLoading(false);
     } catch (e) {
       console.error('Failed to fetch data', e);
-      addToast('Failed to load application data. Check your connection.', 'error');
+      addToast('Application loading partially failed. Some features may be slow.', 'error');
       setIsLoading(false);
     }
   };
