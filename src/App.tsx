@@ -513,6 +513,8 @@ export default function App() {
         fetchNotifications();
       }, 60000);
       return () => clearInterval(interval);
+    } else {
+      setIsLoading(false);
     }
   }, [token]);
 
