@@ -550,18 +550,17 @@ export default function App() {
         notificationsRes.ok ? notificationsRes.json() : Promise.resolve(null),
       ]);
 
-      if (depts) setDepartments(depts);
-      if (classes) setClasses(classes);
-      if (users) setUsers(users);
-      if (tasks) setTasks(tasks);
-      if (submissions) setSubmissions(submissions);
-      if (notifications) setNotifications(notifications);
+      if (depts && Array.isArray(depts)) setDepartments(depts);
+      if (classes && Array.isArray(classes)) setClasses(classes);
+      if (users && Array.isArray(users)) setUsers(users);
+      if (tasks && Array.isArray(tasks)) setTasks(tasks);
+      if (submissions && Array.isArray(submissions)) setSubmissions(submissions);
+      if (notifications && Array.isArray(notifications)) setNotifications(notifications);
 
       const savedUser = sessionStorage.getItem('user');
       if (savedUser) {
         const parsedUser = JSON.parse(savedUser);
 
-        // Refresh user data from server to avoid stale session flags
         try {
           const meRes = await fetch(`${API_URL}/api/auth/me`, {
             headers: { Authorization: `Bearer ${token}` }
@@ -570,17 +569,22 @@ export default function App() {
             const freshUser = await meRes.json();
             setUser(freshUser);
             sessionStorage.setItem('user', JSON.stringify(freshUser));
-            if (freshUser.must_change_password) setShowPasswordModal(true);
-            if (freshUser.role === 'HOD') fetchHODStats();
+            
+            // Queue all stats fetches and await them all
+            const statsPromises: Promise<any>[] = [];
+            if (freshUser.role === 'HOD') statsPromises.push(fetchHODStats());
             if (freshUser.role === 'CLASS_ADVISOR' || (freshUser.role === 'STUDENT' && freshUser.is_coordinator)) {
-              if (freshUser.role === 'CLASS_ADVISOR') fetchAdvisorStats();
-              if (freshUser.role === 'STUDENT' && freshUser.is_coordinator) fetchCoordinatorStats();
-              fetchMyClass();
+              if (freshUser.role === 'CLASS_ADVISOR') statsPromises.push(fetchAdvisorStats());
+              if (freshUser.role === 'STUDENT' && freshUser.is_coordinator) statsPromises.push(fetchCoordinatorStats());
+              statsPromises.push(fetchMyClass());
             }
-            if (freshUser.role === 'STUDENT') fetchStudentStats();
-            if (freshUser.is_year_coordinator) fetchYearStats();
+            if (freshUser.role === 'STUDENT') statsPromises.push(fetchStudentStats());
+            if (freshUser.is_year_coordinator) statsPromises.push(fetchYearStats());
+            
+            await Promise.all(statsPromises);
+            
+            if (freshUser.must_change_password) setShowPasswordModal(true);
           } else {
-            // Fallback to saved user if refresh fails
             setUser(parsedUser);
             if (parsedUser.must_change_password) setShowPasswordModal(true);
           }
@@ -621,36 +625,61 @@ export default function App() {
   const fetchHODStats = async () => {
     try {
       const res = await fetch(`${API_URL}/api/stats/hod`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) setHodStats(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setHodStats(data);
+        return data;
+      }
     } catch (e) { }
+    return null;
   };
 
   const fetchAdvisorStats = async () => {
     try {
       const res = await fetch(`${API_URL}/api/stats/advisor`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) setAdvisorStats(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setAdvisorStats(data);
+        return data;
+      }
     } catch (e) { }
+    return null;
   };
 
   const fetchCoordinatorStats = async () => {
     try {
       const res = await fetch(`${API_URL}/api/stats/coordinator`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) setCoordinatorStats(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setCoordinatorStats(data);
+        return data;
+      }
     } catch (e) { }
+    return null;
   };
 
   const fetchMyClass = async () => {
     try {
       const res = await fetch(`${API_URL}/api/my-class`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) setMyClass(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setMyClass(data);
+        return data;
+      }
     } catch (e) { }
+    return null;
   };
 
   const fetchYearStats = async () => {
     try {
       const res = await fetch(`${API_URL}/api/stats/year`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) setYearStats(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setYearStats(data);
+        return data;
+      }
     } catch (e) { }
+    return null;
   };
 
   const fetchNotifications = async () => {
@@ -810,8 +839,13 @@ export default function App() {
   const fetchStudentStats = async () => {
     try {
       const res = await fetch(`${API_URL}/api/stats/student`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) setStudentStats(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setStudentStats(data);
+        return data;
+      }
     } catch (e) { }
+    return null;
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -1232,17 +1266,21 @@ export default function App() {
     const classId = user?.class_id;
     if (!classId) return;
 
-    const classStudents = users.filter(u => u.role === 'STUDENT' && u.class_id?.toString() === classId.toString());
+    const classStudents = (users || []).filter(u => u.role === 'STUDENT' && u.class_id?.toString() === classId.toString());
     const className = classStudents[0]?.class_name || user?.class_name || `Class_${classId}`;
 
     // Handle NOT_SUBMITTED case
     if (filters?.status === 'NOT_SUBMITTED') {
       const taskList = filters?.taskId
-        ? tasks.filter(t => t.id?.toString() === filters.taskId)
-        : tasks;
+        ? (tasks || []).filter(t => t.id?.toString() === filters.taskId)
+        : (tasks || []).filter(t => {
+          const isDept = t.department_id === user?.department_id;
+          const isGlobal = t.department_id === null && (!(t.class_ids || []).length);
+          return isDept || isGlobal;
+        });
       const rows = classStudents.flatMap(student =>
         taskList.flatMap(task => {
-          const hasSub = submissions.some(s =>
+          const hasSub = (submissions || []).some(s =>
             s.student_name === student.full_name && s.task_id?.toString() === task.id?.toString()
           );
           if (!hasSub) {
@@ -1258,7 +1296,7 @@ export default function App() {
       return;
     }
 
-    let filteredSubs = submissions.filter(s => {
+    let filteredSubs = (submissions || []).filter(s => {
       if (s.class_id?.toString() !== classId.toString()) return false;
       if (filters?.taskId && s.task_id?.toString() !== filters.taskId) return false;
       if (filters?.status && s.status !== filters.status) return false;
@@ -1275,7 +1313,7 @@ export default function App() {
       'Submitted At': s.submitted_at ? new Date(s.submitted_at).toLocaleDateString() : 'N/A',
     }));
 
-    const taskSummary = tasks.map(t => {
+    const taskSummary = (tasks || []).map(t => {
       const taskSubs = filteredSubs.filter(s => s.task_id === t.id);
       return {
         'Task Title': t.title,
@@ -1560,11 +1598,11 @@ export default function App() {
     const currentYearScope = isYear ? Number(user?.year_scope) : null;
     const currentClassId = isCls ? (user?.class_id || myClass?.id || analyzerClassFilter)?.toString() : analyzerClassFilter;
 
-    const deptStudents = users.filter(u => {
+    const deptStudents = (users || []).filter(u => {
       if (u.role !== 'STUDENT') return false;
       if (isCls) return u.class_id?.toString() === currentClassId;
       if (isYear) {
-        const studentClass = classes.find(c => c.id.toString() === u.class_id?.toString());
+        const studentClass = (classes || []).find(c => c.id?.toString() === u.class_id?.toString());
         return u.department_id?.toString() === currentDeptId && Number(studentClass?.year) === currentYearScope;
       }
       if (currentDeptId) return u.department_id?.toString() === currentDeptId;
@@ -1607,7 +1645,7 @@ export default function App() {
         });
 
         const visibleTaskIds = new Set(visibleTasks.map(t => (t as any)._id?.toString() || (t as any).id?.toString()));
-        const studentSubsInContext = studentSubs.filter(s => visibleTaskIds.has(s.task_id?.toString()));
+        const studentSubsInContext = (submissions || []).filter(s => visibleTaskIds.has(s.task_id?.toString()));
         const totalTasks = visibleTasks.length;
         const doneTaskIds = new Set(studentSubsInContext.filter(s => s.status === 'VERIFIED' || s.status === 'SUBMITTED').map(s => s.task_id?.toString()));
         const doneCount = doneTaskIds.size;
