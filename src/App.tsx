@@ -40,36 +40,9 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
 
 // --- Helpers ---
-const fetchWithTimeout = async (resource: string, options: any = {}, timeout = 6000) => {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeout);
-  try {
-    const response = await fetch(resource, {
-      ...options,
-      signal: controller.signal
-    });
-    clearTimeout(id);
-    return response;
-  } catch (error) {
-    clearTimeout(id);
-    throw error;
-  }
-};
-
 const ensureExternalLink = (url: string) => {
   if (!url) return '';
   return url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
-};
-
-const urlBase64ToUint8Array = (base64String: string) => {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
 };
 
 // --- Types ---
@@ -546,56 +519,47 @@ export default function App() {
   const fetchInitialData = async () => {
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      
-      // Phase 1: Fetch Core Lists (Essential for Dashboard rendering)
-      // These are usually fast and indexed.
+      // Fire all requests in parallel
       const [deptsRes, classesRes, usersRes, tasksRes, submissionsRes, notificationsRes] = await Promise.all([
-        fetchWithTimeout(`${API_URL}/api/departments`, { headers }),
-        fetchWithTimeout(`${API_URL}/api/classes`, { headers }),
-        fetchWithTimeout(`${API_URL}/api/users`, { headers }),
-        fetchWithTimeout(`${API_URL}/api/tasks`, { headers }),
-        fetchWithTimeout(`${API_URL}/api/submissions`, { headers }),
-        fetchWithTimeout(`${API_URL}/api/notifications`, { headers })
-      ]).catch(err => {
-        console.error("Core fetch failed", err);
-        return [null, null, null, null, null, null] as any[];
-      });
-
-      // Parse JSON
-      const [depts, classes, users, tasks, submissions, notifications] = await Promise.all([
-        deptsRes?.ok ? deptsRes.json() : Promise.resolve(null),
-        classesRes?.ok ? classesRes.json() : Promise.resolve(null),
-        usersRes?.ok ? usersRes.json() : Promise.resolve(null),
-        tasksRes?.ok ? tasksRes.json() : Promise.resolve(null),
-        submissionsRes?.ok ? submissionsRes.json() : Promise.resolve(null),
-        notificationsRes?.ok ? notificationsRes.json() : Promise.resolve(null),
+        fetch(`${API_URL}/api/departments`, { headers }),
+        fetch(`${API_URL}/api/classes`, { headers }),
+        fetch(`${API_URL}/api/users`, { headers }),
+        fetch(`${API_URL}/api/tasks`, { headers }),
+        fetch(`${API_URL}/api/submissions`, { headers }),
+        fetch(`${API_URL}/api/notifications`, { headers })
       ]);
 
-      if (depts && Array.isArray(depts)) setDepartments(depts);
-      if (classes && Array.isArray(classes)) setClasses(classes);
-      if (users && Array.isArray(users)) setUsers(users);
-      if (tasks && Array.isArray(tasks)) setTasks(tasks);
-      if (submissions && Array.isArray(submissions)) setSubmissions(submissions);
-      if (notifications && Array.isArray(notifications)) setNotifications(notifications);
+      // Parse JSON in parallel too
+      const [depts, classes, users, tasks, submissions, notifications] = await Promise.all([
+        deptsRes.ok ? deptsRes.json() : Promise.resolve(null),
+        classesRes.ok ? classesRes.json() : Promise.resolve(null),
+        usersRes.ok ? usersRes.json() : Promise.resolve(null),
+        tasksRes.ok ? tasksRes.json() : Promise.resolve(null),
+        submissionsRes.ok ? submissionsRes.json() : Promise.resolve(null),
+        notificationsRes.ok ? notificationsRes.json() : Promise.resolve(null),
+      ]);
+
+      if (depts) setDepartments(depts);
+      if (classes) setClasses(classes);
+      if (users) setUsers(users);
+      if (tasks) setTasks(tasks);
+      if (submissions) setSubmissions(submissions);
+      if (notifications) setNotifications(notifications);
 
       const savedUser = sessionStorage.getItem('user');
       if (savedUser) {
         const parsedUser = JSON.parse(savedUser);
 
+        // Refresh user data from server to avoid stale session flags
         try {
-          const meRes = await fetchWithTimeout(`${API_URL}/api/auth/me`, {
+          const meRes = await fetch(`${API_URL}/api/auth/me`, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          
           if (meRes.ok) {
             const freshUser = await meRes.json();
             setUser(freshUser);
             sessionStorage.setItem('user', JSON.stringify(freshUser));
-            
-            // Phase 2: Show Dashboard immediately (Progressive Loading)
-            setIsLoading(false);
-
-            // Phase 3: Fetch Complex Stats in background
+            if (freshUser.must_change_password) setShowPasswordModal(true);
             if (freshUser.role === 'HOD') fetchHODStats();
             if (freshUser.role === 'CLASS_ADVISOR' || (freshUser.role === 'STUDENT' && freshUser.is_coordinator)) {
               if (freshUser.role === 'CLASS_ADVISOR') fetchAdvisorStats();
@@ -604,22 +568,19 @@ export default function App() {
             }
             if (freshUser.role === 'STUDENT') fetchStudentStats();
             if (freshUser.is_year_coordinator) fetchYearStats();
-            
-            if (freshUser.must_change_password) setShowPasswordModal(true);
-            return; // Exit early as we've already set isLoading(false)
           } else {
+            // Fallback to saved user if refresh fails
             setUser(parsedUser);
             if (parsedUser.must_change_password) setShowPasswordModal(true);
           }
         } catch (err) {
-          console.warn("Auth refresh failed, using session data", err);
           setUser(parsedUser);
         }
       }
       setIsLoading(false);
     } catch (e) {
       console.error('Failed to fetch data', e);
-      addToast('Application loading partially failed. Some features may be slow.', 'error');
+      addToast('Failed to load application data. Check your connection.', 'error');
       setIsLoading(false);
     }
   };
@@ -649,61 +610,36 @@ export default function App() {
   const fetchHODStats = async () => {
     try {
       const res = await fetch(`${API_URL}/api/stats/hod`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) {
-        const data = await res.json();
-        setHodStats(data);
-        return data;
-      }
+      if (res.ok) setHodStats(await res.json());
     } catch (e) { }
-    return null;
   };
 
   const fetchAdvisorStats = async () => {
     try {
       const res = await fetch(`${API_URL}/api/stats/advisor`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) {
-        const data = await res.json();
-        setAdvisorStats(data);
-        return data;
-      }
+      if (res.ok) setAdvisorStats(await res.json());
     } catch (e) { }
-    return null;
   };
 
   const fetchCoordinatorStats = async () => {
     try {
       const res = await fetch(`${API_URL}/api/stats/coordinator`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) {
-        const data = await res.json();
-        setCoordinatorStats(data);
-        return data;
-      }
+      if (res.ok) setCoordinatorStats(await res.json());
     } catch (e) { }
-    return null;
   };
 
   const fetchMyClass = async () => {
     try {
       const res = await fetch(`${API_URL}/api/my-class`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) {
-        const data = await res.json();
-        setMyClass(data);
-        return data;
-      }
+      if (res.ok) setMyClass(await res.json());
     } catch (e) { }
-    return null;
   };
 
   const fetchYearStats = async () => {
     try {
       const res = await fetch(`${API_URL}/api/stats/year`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) {
-        const data = await res.json();
-        setYearStats(data);
-        return data;
-      }
+      if (res.ok) setYearStats(await res.json());
     } catch (e) { }
-    return null;
   };
 
   const fetchNotifications = async () => {
@@ -863,19 +799,13 @@ export default function App() {
   const fetchStudentStats = async () => {
     try {
       const res = await fetch(`${API_URL}/api/stats/student`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) {
-        const data = await res.json();
-        setStudentStats(data);
-        return data;
-      }
+      if (res.ok) setStudentStats(await res.json());
     } catch (e) { }
-    return null;
   };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setIsLoading(true);
     try {
       const res = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
@@ -892,14 +822,11 @@ export default function App() {
           setShowPasswordModal(true);
         }
         setView('dashboard');
-        setIsLoading(false);
       } else {
         setError(data.error || 'Failed to login');
-        setIsLoading(false);
       }
     } catch (e) {
       setError(`Connection failed: ${e instanceof Error ? e.message : String(e)}. Check console and VITE_API_BASE_URL: ${API_URL}`);
-      setIsLoading(false);
       console.error('Login error:', e);
     }
   };
@@ -911,15 +838,6 @@ export default function App() {
     setUser(null);
     setLoginRole(null);
     setLoginData({ username: '', password: '' });
-    
-    // Reset all data and set loading state for next login
-    setUsers([]);
-    setTasks([]);
-    setSubmissions([]);
-    setDepartments([]);
-    setClasses([]);
-    setIsLoading(false);
-    
     setView('dashboard');
   };
 
@@ -1291,21 +1209,17 @@ export default function App() {
     const classId = user?.class_id;
     if (!classId) return;
 
-    const classStudents = (users || []).filter(u => u.role === 'STUDENT' && u.class_id?.toString() === classId.toString());
+    const classStudents = users.filter(u => u.role === 'STUDENT' && u.class_id?.toString() === classId.toString());
     const className = classStudents[0]?.class_name || user?.class_name || `Class_${classId}`;
 
     // Handle NOT_SUBMITTED case
     if (filters?.status === 'NOT_SUBMITTED') {
       const taskList = filters?.taskId
-        ? (tasks || []).filter(t => t.id?.toString() === filters.taskId)
-        : (tasks || []).filter(t => {
-          const isDept = t.department_id === user?.department_id;
-          const isGlobal = t.department_id === null && (!(t.class_ids || []).length);
-          return isDept || isGlobal;
-        });
+        ? tasks.filter(t => t.id?.toString() === filters.taskId)
+        : tasks;
       const rows = classStudents.flatMap(student =>
         taskList.flatMap(task => {
-          const hasSub = (submissions || []).some(s =>
+          const hasSub = submissions.some(s =>
             s.student_name === student.full_name && s.task_id?.toString() === task.id?.toString()
           );
           if (!hasSub) {
@@ -1321,7 +1235,7 @@ export default function App() {
       return;
     }
 
-    let filteredSubs = (submissions || []).filter(s => {
+    let filteredSubs = submissions.filter(s => {
       if (s.class_id?.toString() !== classId.toString()) return false;
       if (filters?.taskId && s.task_id?.toString() !== filters.taskId) return false;
       if (filters?.status && s.status !== filters.status) return false;
@@ -1338,7 +1252,7 @@ export default function App() {
       'Submitted At': s.submitted_at ? new Date(s.submitted_at).toLocaleDateString() : 'N/A',
     }));
 
-    const taskSummary = (tasks || []).map(t => {
+    const taskSummary = tasks.map(t => {
       const taskSubs = filteredSubs.filter(s => s.task_id === t.id);
       return {
         'Task Title': t.title,
@@ -1556,59 +1470,6 @@ export default function App() {
     );
   }
 
-  // This useEffect is assumed to exist or be added based on the instruction's context
-  useEffect(() => {
-    if (user) {
-      setView('dashboard');
-    }
-  }, [user]);
-
-  // --- Push Notification Registration ---
-  useEffect(() => {
-    if (user && token && 'serviceWorker' in navigator && 'PushManager' in window) {
-      const VAPID_PUBLIC_KEY = 'BBcFII7f___Q7_JNy-9WF1amU-TyHWTK8HBAK9UBpwuFl8GEyKcsW-_d7rebs1ndhsggff-CiInNW-_3RzHtYY8';
-
-      const registerPush = async () => {
-        try {
-          // Register service worker
-          const registration = await navigator.serviceWorker.register('/sw.js');
-          console.log('Service Worker registered');
-
-          // Ensure permission
-          const permission = await Notification.requestPermission();
-          if (permission !== 'granted') return;
-
-          // Subscribe
-          let subscription = await registration.pushManager.getSubscription();
-          if (!subscription) {
-            subscription = await registration.pushManager.subscribe({
-              userVisibleOnly: true,
-              applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-            });
-          }
-
-          // Convert to JSON explicitly for reliability
-          const subscriptionData = subscription.toJSON();
-
-          // Save to backend (always send to ensure DB has it)
-          await fetch(`${API_URL}/api/push/subscribe`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ subscription: subscriptionData })
-          });
-          console.log('Push subscription saved');
-        } catch (err) {
-          console.error('Push registration failed:', err);
-        }
-      };
-
-      registerPush();
-    }
-  }, [user, token]);
-
   const isAdmin = user?.role === 'SUPREME_ADMIN';
   const isHOD = user?.role === 'HOD';
 
@@ -1623,11 +1484,11 @@ export default function App() {
     const currentYearScope = isYear ? Number(user?.year_scope) : null;
     const currentClassId = isCls ? (user?.class_id || myClass?.id || analyzerClassFilter)?.toString() : analyzerClassFilter;
 
-    const deptStudents = (users || []).filter(u => {
+    const deptStudents = users.filter(u => {
       if (u.role !== 'STUDENT') return false;
       if (isCls) return u.class_id?.toString() === currentClassId;
       if (isYear) {
-        const studentClass = (classes || []).find(c => c.id?.toString() === u.class_id?.toString());
+        const studentClass = classes.find(c => c.id.toString() === u.class_id?.toString());
         return u.department_id?.toString() === currentDeptId && Number(studentClass?.year) === currentYearScope;
       }
       if (currentDeptId) return u.department_id?.toString() === currentDeptId;
@@ -1670,7 +1531,7 @@ export default function App() {
         });
 
         const visibleTaskIds = new Set(visibleTasks.map(t => (t as any)._id?.toString() || (t as any).id?.toString()));
-        const studentSubsInContext = (submissions || []).filter(s => visibleTaskIds.has(s.task_id?.toString()));
+        const studentSubsInContext = studentSubs.filter(s => visibleTaskIds.has(s.task_id?.toString()));
         const totalTasks = visibleTasks.length;
         const doneTaskIds = new Set(studentSubsInContext.filter(s => s.status === 'VERIFIED' || s.status === 'SUBMITTED').map(s => s.task_id?.toString()));
         const doneCount = doneTaskIds.size;
@@ -2858,13 +2719,15 @@ export default function App() {
                         onChange={e => setNewUser(prev => ({ ...prev, full_name: e.target.value }))}
                         required
                       />
-                      <Input
-                        type="email"
-                        placeholder="Email Address"
-                        value={newUser.email}
-                        onChange={e => setNewUser(prev => ({ ...prev, email: e.target.value }))}
-                        required
-                      />
+                      {isAdvisor && (
+                        <Input
+                          type="email"
+                          placeholder="Email Address"
+                          value={newUser.email}
+                          onChange={e => setNewUser(prev => ({ ...prev, email: e.target.value }))}
+                          required
+                        />
+                      )}
                       {isAdmin ? (
                         <select
                           className="w-full px-4 py-2 rounded-lg border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all bg-white"

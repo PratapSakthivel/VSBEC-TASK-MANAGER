@@ -6,7 +6,3 @@ coverage/
 *.log
 .env*
 !.env.example
-*.xlsx
-*.xls
-tmp/*.mjs
-tmp/*.txt

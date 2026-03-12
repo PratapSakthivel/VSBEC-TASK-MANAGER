@@ -14,7 +14,6 @@ import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import fs from 'fs';
 import { z } from 'zod';
 import { sendWelcomeEmail, sendTaskAssignmentEmail } from './src/utils/emailService.js';
-import { notifyUserByPush } from './src/utils/pushService.js';
 import { startDeadlineReminderJob } from './src/jobs/deadlineReminder.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -105,15 +104,6 @@ const userSchema = new Schema({
   year_scope: { type: Number, default: null },
   must_change_password: { type: Boolean, default: true },
   is_active: { type: Boolean, default: true },
-  push_subscriptions: [
-    {
-      endpoint: String,
-      keys: {
-        p256dh: String,
-        auth: String
-      }
-    }
-  ]
 }, { timestamps: true });
 
 // Hash password on save, and normalize empty strings to undefined (removes from DB)
@@ -209,19 +199,22 @@ async function seedData() {
         }
 
         // 3. Password Alignment: Surgical Sync for ALL ROLES
-        // Only rehash if the stored password is plain text (not already a bcrypt hash).
-        // bcrypt hashes always start with $2a$ or $2b$ — so we can skip the slow compareSync entirely.
+        // We ensure ANY user who hasn't finalized their account yet gets a valid default password.
         if (u.username !== 'admin') {
+          // If must_change_password is NOT false, they are in a "default" or "reset" state.
           const needsSync = (u.must_change_password !== false);
-          const isAlreadyHashed = (u.password || '').startsWith('$2a$') || (u.password || '').startsWith('$2b$');
 
-          if (needsSync && !isAlreadyHashed) {
+          if (needsSync) {
             const defaultPass = cleanRegNo || cleanUsername;
             if (defaultPass) {
-              u.password = bcrypt.hashSync(defaultPass, 10);
-              u.must_change_password = true;
-              changed = true;
-              console.log(`[SYNC] Initialized password for ${u.role}: ${u.username}`);
+              const newHash = bcrypt.hashSync(defaultPass, 10);
+              // Only update if current hash doesn't match the default (prevents re-hashing loops)
+              if (!bcrypt.compareSync(defaultPass, u.password || '')) {
+                u.password = newHash;
+                u.must_change_password = true;
+                changed = true;
+                console.log(`[SYNC] Initialized password for ${u.role}: ${u.username}`);
+              }
             }
           }
         }
@@ -673,63 +666,6 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  // ── Push Notifications ───────────────────────────────────────────────────
-  app.post('/api/push/subscribe', authenticate, async (req: any, res) => {
-    const { subscription } = req.body;
-    if (!subscription) return res.status(400).json({ error: 'Subscription is required' });
-
-    try {
-      console.log(`[PUSH] Subscribing user ${req.user.username} - Endpoint: ${subscription.endpoint?.substring(0, 30)}...`);
-      await User.findByIdAndUpdate(req.user.id, {
-        $addToSet: { push_subscriptions: subscription }
-      });
-      res.json({ success: true });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  app.post('/api/push/unsubscribe', authenticate, async (req: any, res) => {
-    const { subscription } = req.body;
-    if (!subscription) return res.status(400).json({ error: 'Subscription is required' });
-
-    try {
-      await User.findByIdAndUpdate(req.user.id, {
-        $pull: { push_subscriptions: { endpoint: subscription.endpoint } }
-      });
-      res.json({ success: true });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // Diagnostic Test Push
-  app.get('/api/admin/test-push', authenticate, authorize(['SUPREME_ADMIN']), async (req: any, res) => {
-    try {
-      const dbUser: any = await User.findById(req.user.id);
-      if (!dbUser) return res.status(404).json({ error: 'User not found' });
-
-      if (!dbUser.push_subscriptions || dbUser.push_subscriptions.length === 0) {
-        return res.json({ 
-          success: false, 
-          message: 'No push subscriptions found for your account. Please ensure you clicked "Allow" in the browser and refreshed the page.' 
-        });
-      }
-
-      console.log(`[PUSH] Sending test notification to user ${dbUser.username} (${dbUser.push_subscriptions.length} devices)`);
-      const results = await notifyUserByPush(dbUser, 'Diagnostic Test', 'If you see this, Web Push is working!', '/');
-      
-      res.json({ 
-        success: true, 
-        message: 'Test push triggered', 
-        device_count: dbUser.push_subscriptions.length,
-        results 
-      });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
   // ── Tasks ─────────────────────────────────────────────────────────────────
   const populateTask = (q: any) => q
     .populate('created_by', 'full_name')
@@ -928,11 +864,9 @@ async function startServer() {
               creatorName
             );
           }
-          // Also send Web Push Notification
-          notifyUserByPush(student, 'New Task Assigned', `"${title}" assigned by ${creatorName}`, '/tasks');
         }
       } catch (emailErr: any) {
-        console.error('[NOTIFY] Task notification error:', emailErr.message);
+        console.error('[EMAIL] Task assignment email error:', emailErr.message);
       }
     } catch (err: any) {
       console.error("Task Creation Error DB:", err);
