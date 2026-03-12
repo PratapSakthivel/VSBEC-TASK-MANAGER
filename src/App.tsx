@@ -2799,203 +2799,233 @@ export default function App() {
                   </Card>
 
                   <Card className="overflow-hidden p-0">
-                    <table className="w-full text-left">
-                      <thead className="bg-zinc-50 border-b border-zinc-200">
-                        <tr>
-                          <th className="px-6 py-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Name</th>
-                          <th className="px-6 py-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
-                            {isAdvisor ? 'Register No' : 'Username'}
-                          </th>
-                          {isAdvisor && <th className="px-6 py-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Email</th>}
-                          {!isAdvisor && <th className="px-6 py-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider">{isAdmin ? 'Department' : 'Class'}</th>}
-                          <th className="px-6 py-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Status</th>
-                          <th className="px-6 py-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-100">
-                        {(() => {
-                          const filtered = users
-                            .filter(u => {
-                              if (isAdmin) {
-                                if (userRoleFilter && u.role !== userRoleFilter) return false;
-                                if (userDeptFilter && u.department_id?.toString() !== userDeptFilter.toString()) return false;
-                                return u.role !== 'SUPREME_ADMIN'; // Don't show SA itself
-                              }
-                              if (isAdvisor) {
-                                if (studentFilter === 'ACTIVE') return u.is_active;
-                                if (studentFilter === 'COORDINATORS') return u.is_coordinator;
-                              } else if (isHOD) {
-                                if (studentFilter === 'CLASS_ADVISOR') return u.role === 'CLASS_ADVISOR';
-                                if (studentFilter === 'STUDENT') return u.role === 'STUDENT';
-                              }
-                              return true;
-                            })
-                            .filter(u => {
-                              if (!searchTerm) return true;
-                              const query = searchTerm.toLowerCase();
-                              return u.full_name?.toLowerCase().includes(query) || (u.register_number || u.username).toLowerCase().includes(query) || u.department_name?.toLowerCase().includes(query);
-                            });
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse min-w-[800px]">
+                        <thead className="bg-zinc-50 border-b border-zinc-200">
+                          <tr>
+                            <th className="px-6 py-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Name</th>
+                            <th className="px-6 py-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                              {isAdvisor ? 'Register No' : 'ID / Username'}
+                            </th>
+                            {isAdvisor && <th className="px-6 py-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Email</th>}
+                            {!isAdvisor && <th className="px-6 py-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider">{isAdmin ? 'Dept' : 'Room / Class'}</th>}
+                            <th className="px-6 py-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Status</th>
+                            <th className="px-6 py-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-100">
+                          {(() => {
+                            const filtered = users
+                              .filter(u => {
+                                if (isAdmin) {
+                                  if (userRoleFilter && u.role !== userRoleFilter) return false;
+                                  if (userDeptFilter && u.department_id?.toString() !== userDeptFilter.toString()) return false;
+                                  return u.role !== 'SUPREME_ADMIN'; // Don't show SA itself
+                                }
+                                if (isAdvisor) {
+                                  if (studentFilter === 'ACTIVE') return u.is_active;
+                                  if (studentFilter === 'COORDINATORS') return u.is_coordinator;
+                                } else if (isHOD) {
+                                  if (studentFilter === 'CLASS_ADVISOR') return u.role === 'CLASS_ADVISOR';
+                                  if (studentFilter === 'STUDENT') return u.role === 'STUDENT';
+                                }
+                                return true;
+                              })
+                              .filter(u => {
+                                if (!searchTerm) return true;
+                                const query = searchTerm.toLowerCase();
+                                return u.full_name?.toLowerCase().includes(query) || (u.register_number || u.username).toLowerCase().includes(query) || u.department_name?.toLowerCase().includes(query);
+                              });
 
-                          const totalPages = Math.ceil(filtered.length / itemsPerPage);
-                          const paginated = filtered.slice((userPage - 1) * itemsPerPage, userPage * itemsPerPage);
+                            const totalPages = Math.ceil(filtered.length / itemsPerPage);
+                            const paginated = filtered.slice((userPage - 1) * itemsPerPage, userPage * itemsPerPage);
 
-                          return (
-                            <>
-                              {paginated.map(u => (
-                                <tr key={u.id} className={cn("hover:bg-zinc-50 transition-colors", !u.is_active && "opacity-50 grayscale")}>
-                                  <td className="px-6 py-4 font-medium text-zinc-900">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      {u.full_name}
-                                      {u.is_year_coordinator && (
-                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-600 text-white rounded-full text-[10px] font-black uppercase tracking-tighter shadow-sm animate-in fade-in zoom-in duration-300">
-                                          <CalendarRange size={12} />
-                                          Year {u.year_scope} Overall Coord
+                            // Condensed Pagination Logic
+                            const getPageRange = () => {
+                              const range = [];
+                              const delta = 1;
+                              for (let i = 1; i <= totalPages; i++) {
+                                if (i === 1 || i === totalPages || (i >= userPage - delta && i <= userPage + delta)) {
+                                  range.push(i);
+                                }
+                              }
+                              const pages: (number | string)[] = [];
+                              let l: number | undefined;
+                              for (let i of range) {
+                                if (l) {
+                                  if (i - l === 2) pages.push(l + 1);
+                                  else if (i - l !== 1) pages.push('...');
+                                }
+                                pages.push(i);
+                                l = i;
+                              }
+                              return pages;
+                            };
+
+                            return (
+                              <>
+                                {paginated.map(u => (
+                                  <tr key={u.id} className={cn("hover:bg-zinc-50 transition-colors", !u.is_active && "opacity-50 grayscale")}>
+                                    <td className="px-6 py-4 font-medium text-zinc-900">
+                                      <div className="flex items-center gap-2 flex-wrap min-w-[150px]">
+                                        {u.full_name}
+                                        {u.is_year_coordinator && (
+                                          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-600 text-white rounded-full text-[10px] font-black uppercase tracking-tighter shadow-sm animate-in fade-in zoom-in duration-300">
+                                            <CalendarRange size={12} />
+                                            Year {u.year_scope} Overall Coord
+                                          </span>
+                                        )}
+                                        {!!u.is_coordinator && (
+                                          <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-bold uppercase whitespace-nowrap">Class Coord</span>
+                                        )}
+                                        {isAdmin && (
+                                          <span className={cn("px-2 py-0.5 rounded text-[10px] font-bold uppercase whitespace-nowrap",
+                                            u.role === 'HOD' ? 'bg-blue-100 text-blue-700' :
+                                              u.role === 'CLASS_ADVISOR' ? 'bg-purple-100 text-purple-700' :
+                                                'bg-zinc-100 text-zinc-600'
+                                          )}>{u.role === 'CLASS_ADVISOR' ? 'Advisor' : u.role}</span>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-zinc-500">{u.register_number || u.username}</td>
+                                    {isAdvisor && <td className="px-6 py-4 text-zinc-500">{u.email}</td>}
+                                    {!isAdvisor && (
+                                      <td className="px-6 py-4">
+                                        <span className="px-2 py-1 bg-zinc-100 rounded text-xs text-zinc-600">
+                                          {isAdmin ? (u.department_name || '—') : u.class_name}
                                         </span>
-                                      )}
-                                      {!!u.is_coordinator && (
-                                        <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-bold uppercase whitespace-nowrap">Class Coord</span>
-                                      )}
-                                      {isAdmin && (
-                                        <span className={cn("px-2 py-0.5 rounded text-[10px] font-bold uppercase whitespace-nowrap",
-                                          u.role === 'HOD' ? 'bg-blue-100 text-blue-700' :
-                                            u.role === 'CLASS_ADVISOR' ? 'bg-purple-100 text-purple-700' :
-                                              'bg-zinc-100 text-zinc-600'
-                                        )}>{u.role === 'CLASS_ADVISOR' ? 'Advisor' : u.role}</span>
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td className="px-6 py-4 text-zinc-500">{u.register_number || u.username}</td>
-                                  {isAdvisor && <td className="px-6 py-4 text-zinc-500">{u.email}</td>}
-                                  {!isAdvisor && (
+                                      </td>
+                                    )}
                                     <td className="px-6 py-4">
-                                      <span className="px-2 py-1 bg-zinc-100 rounded text-xs text-zinc-600">
-                                        {isAdmin ? (u.department_name || '—') : u.class_name}
+                                      <span className={cn(
+                                        "px-2 py-1 rounded text-[10px] font-bold uppercase tracking-tight",
+                                        u.is_active ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+                                      )}>
+                                        {u.is_active ? 'Active' : 'Deactivated'}
                                       </span>
                                     </td>
-                                  )}
-                                  <td className="px-6 py-4">
-                                    <span className={cn(
-                                      "px-2 py-1 rounded text-[10px] font-bold uppercase tracking-tight",
-                                      u.is_active ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
-                                    )}>
-                                      {u.is_active ? 'Active' : 'Deactivated'}
-                                    </span>
-                                  </td>
-                                  <td className="px-6 py-4 text-right">
-                                    <div className="flex justify-end gap-2">
-                                      {isAdvisor && (
+                                    <td className="px-6 py-4 text-right">
+                                      <div className="flex justify-end gap-2">
+                                        {isAdvisor && (
+                                          <Button
+                                            variant="ghost"
+                                            className={cn("p-2", u.is_coordinator ? "text-amber-600" : "text-zinc-400")}
+                                            onClick={() => toggleCoordinator(u.id, u.is_coordinator || false)}
+                                            title={u.is_coordinator ? "Remove Coordinator" : "Make Coordinator"}
+                                          >
+                                            <ShieldCheck size={18} />
+                                          </Button>
+                                        )}
+                                        {isHOD && u.role === 'CLASS_ADVISOR' && (
+                                          <Button
+                                            variant="ghost"
+                                            className={cn("p-2", u.is_year_coordinator ? "text-indigo-600" : "text-zinc-400")}
+                                            onClick={() => toggleYearCoordinator(u.id, u.is_year_coordinator || false, u.year_scope)}
+                                            title={u.is_year_coordinator ? "Remove Year Coordinator" : "Assign Year Coordinator"}
+                                          >
+                                            <CalendarRange size={18} />
+                                          </Button>
+                                        )}
                                         <Button
                                           variant="ghost"
-                                          className={cn("p-2", u.is_coordinator ? "text-amber-600" : "text-zinc-400")}
-                                          onClick={() => toggleCoordinator(u.id, u.is_coordinator || false)}
-                                          title={u.is_coordinator ? "Remove Coordinator" : "Make Coordinator"}
+                                          className="p-2 text-zinc-400 hover:text-blue-600"
+                                          onClick={() => resetPassword(u.id)}
+                                          title="Reset Password"
                                         >
-                                          <ShieldCheck size={18} />
+                                          <ShieldCheck size={18} className="text-blue-500" />
                                         </Button>
-                                      )}
-                                      {isHOD && u.role === 'CLASS_ADVISOR' && (
                                         <Button
                                           variant="ghost"
-                                          className={cn("p-2", u.is_year_coordinator ? "text-indigo-600" : "text-zinc-400")}
-                                          onClick={() => toggleYearCoordinator(u.id, u.is_year_coordinator || false, u.year_scope)}
-                                          title={u.is_year_coordinator ? "Remove Year Coordinator" : "Assign Year Coordinator"}
+                                          className="p-2 text-zinc-400 hover:text-blue-600"
+                                          onClick={() => toggleUserStatus(u.id, u.is_active !== false)}
+                                          title={u.is_active !== false ? "Deactivate" : "Activate"}
                                         >
-                                          <CalendarRange size={18} />
+                                          {u.is_active !== false ? <XCircle size={18} /> : <CheckCircle2 size={18} />}
                                         </Button>
-                                      )}
-                                      <Button
-                                        variant="ghost"
-                                        className="p-2 text-zinc-400 hover:text-blue-600"
-                                        onClick={() => resetPassword(u.id)}
-                                        title="Reset Password"
-                                      >
-                                        <ShieldCheck size={18} className="text-blue-500" />
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        className="p-2 text-zinc-400 hover:text-blue-600"
-                                        onClick={() => toggleUserStatus(u.id, u.is_active !== false)}
-                                        title={u.is_active !== false ? "Deactivate" : "Activate"}
-                                      >
-                                        {u.is_active !== false ? <XCircle size={18} /> : <CheckCircle2 size={18} />}
-                                      </Button>
-                                      <button
-                                        onClick={async () => {
-                                          const roleLabel = u.role === 'CLASS_ADVISOR' ? 'Advisor' : u.role === 'HOD' ? 'HOD' : 'User';
-                                          if (confirm(`Delete ${roleLabel} ${u.full_name}? This cannot be undone.`)) {
-                                            const res = await fetch(`${API_URL}/api/users/${u.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
-                                            if (res.ok) {
-                                              fetchInitialData();
-                                              addToast(`${roleLabel} deleted successfully.`, 'success');
-                                            } else {
-                                              const data = await res.json();
-                                              addToast(data.error || 'Failed to delete user', 'error');
+                                        <Button
+                                          variant="ghost"
+                                          onClick={async () => {
+                                            const roleLabel = u.role === 'CLASS_ADVISOR' ? 'Advisor' : u.role === 'HOD' ? 'HOD' : 'User';
+                                            if (confirm(`Delete ${roleLabel} ${u.full_name}? This cannot be undone.`)) {
+                                              const res = await fetch(`${API_URL}/api/users/${u.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+                                              if (res.ok) {
+                                                fetchInitialData();
+                                                addToast(`${roleLabel} deleted successfully.`, 'success');
+                                              } else {
+                                                const data = await res.json();
+                                                addToast(data.error || 'Failed to delete user', 'error');
+                                              }
                                             }
-                                          }
-                                        }}
-                                        className="p-2 transition-colors text-zinc-400 hover:text-red-500"
-                                      >
-                                        <Trash2 size={18} />
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))}
-                              {filtered.length > itemsPerPage && (
-                                <tr>
-                                  <td colSpan={6} className="px-6 py-4">
-                                    <div className="flex items-center justify-between">
-                                      <p className="text-xs text-zinc-500">
-                                        Showing {(userPage - 1) * itemsPerPage + 1} to {Math.min(userPage * itemsPerPage, filtered.length)} of {filtered.length} entries
-                                      </p>
-                                      <div className="flex gap-2">
-                                        <Button
-                                          variant="secondary"
-                                          className="px-3 py-1 text-xs"
-                                          disabled={userPage === 1}
-                                          onClick={() => setUserPage(prev => prev - 1)}
+                                          }}
+                                          className="p-2 text-zinc-400 hover:text-red-500 hover:bg-red-50"
+                                          title="Delete User"
                                         >
-                                          Previous
-                                        </Button>
-                                        <div className="flex gap-1">
-                                          {Array.from({ length: totalPages }).map((_, i) => (
-                                            <button
-                                              key={i}
-                                              onClick={() => setUserPage(i + 1)}
-                                              className={cn(
-                                                "w-8 h-8 rounded-lg text-xs font-bold transition-all",
-                                                userPage === i + 1 ? "bg-black text-white" : "text-zinc-500 hover:bg-zinc-100"
-                                              )}
-                                            >
-                                              {i + 1}
-                                            </button>
-                                          ))}
-                                        </div>
-                                        <Button
-                                          variant="secondary"
-                                          className="px-3 py-1 text-xs"
-                                          disabled={userPage === totalPages}
-                                          onClick={() => setUserPage(prev => prev + 1)}
-                                        >
-                                          Next
+                                          <Trash2 size={18} />
                                         </Button>
                                       </div>
-                                    </div>
-                                  </td>
-                                </tr>
-                              )}
-                              {filtered.length === 0 && (
-                                <tr>
-                                  <td colSpan={6} className="px-6 py-12 text-center text-zinc-500 text-sm">
-                                    No matching records found.
-                                  </td>
-                                </tr>
-                              )}
-                            </>
-                          );
-                        })()}
-                      </tbody>
-                    </table>
+                                    </td>
+                                  </tr>
+                                ))}
+                                {filtered.length > itemsPerPage && (
+                                  <tr>
+                                    <td colSpan={6} className="px-6 py-4">
+                                      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                                        <p className="text-xs text-zinc-500">
+                                          Showing {(userPage - 1) * itemsPerPage + 1} to {Math.min(userPage * itemsPerPage, filtered.length)} of {filtered.length} entries
+                                        </p>
+                                        <div className="flex items-center gap-2 overflow-x-auto max-w-full pb-2 md:pb-0">
+                                          <Button
+                                            variant="secondary"
+                                            className="px-3 py-1 text-xs whitespace-nowrap"
+                                            disabled={userPage === 1}
+                                            onClick={() => setUserPage(prev => prev - 1)}
+                                          >
+                                            Previous
+                                          </Button>
+                                          <div className="flex gap-1">
+                                            {getPageRange().map((p, i) => (
+                                              p === '...' ? (
+                                                <span key={`sep-${i}`} className="w-8 h-8 flex items-center justify-center text-zinc-400">...</span>
+                                              ) : (
+                                                <button
+                                                  key={`page-${p}`}
+                                                  onClick={() => setUserPage(p as number)}
+                                                  className={cn(
+                                                    "w-8 h-8 rounded-lg text-xs font-bold transition-all shrink-0",
+                                                    userPage === p ? "bg-black text-white" : "text-zinc-500 hover:bg-zinc-100"
+                                                  )}
+                                                >
+                                                  {p}
+                                                </button>
+                                              )
+                                            ))}
+                                          </div>
+                                          <Button
+                                            variant="secondary"
+                                            className="px-3 py-1 text-xs whitespace-nowrap"
+                                            disabled={userPage === totalPages}
+                                            onClick={() => setUserPage(prev => prev + 1)}
+                                          >
+                                            Next
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                                {filtered.length === 0 && (
+                                  <tr>
+                                    <td colSpan={6} className="px-6 py-12 text-center text-zinc-500 text-sm">
+                                      No matching records found.
+                                    </td>
+                                  </tr>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </tbody>
+                      </table>
+                    </div>
                   </Card>
                 </motion.div>
               )
