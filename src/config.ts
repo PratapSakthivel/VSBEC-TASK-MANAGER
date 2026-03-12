@@ -1,2 +1,2 @@
 /// <reference types="vite/client" />
-export const API_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+export const API_URL = (import.meta.env.VITE_API_BASE_URL || window.location.origin).replace(/\/$/, '');
