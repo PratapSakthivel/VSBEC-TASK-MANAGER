@@ -1,7 +1,6 @@
 import dotenv from 'dotenv';
 dotenv.config();
 import express from 'express';
-import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import mongoose, { Schema, Document, Types } from 'mongoose';
@@ -1352,33 +1351,15 @@ async function startServer() {
     });
   });
 
-  // ── Vite Middleware ───────────────────────────────────────────────────────
+  // ── Vite Middleware (Development Only) ──────────────────────────────────────
   if (process.env.NODE_ENV !== 'production') {
+    // Dynamic import so Vite is never bundled in the production serverless function
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
-  } else if (fs.existsSync(path.join(__dirname, 'dist'))) {
-    // Only serve frontend if it exists locally (not needed for Render + Vercel stack)
-    app.use(express.static(path.join(__dirname, 'dist')));
-    // ─── Diagnostic Endpoints ──────────────────────────────────────────────────
-    app.get('/api/admin/test-email', authenticate, authorize(['SUPREME_ADMIN']), async (req: any, res: any) => {
-      try {
-        await sendWelcomeEmail(req.user.email || 'techforce.vsbec@gmail.com', req.user.full_name || 'Admin', req.user.role);
-        res.json({ success: true, message: `Test email sent to ${req.user.email || 'techforce.vsbec@gmail.com'}` });
-      } catch (err: any) {
-        res.status(500).json({ error: err.message });
-      }
-    });
-
-    app.get('*', (req, res) => {
-      if (fs.existsSync(path.join(__dirname, 'dist/index.html'))) {
-        res.sendFile(path.join(__dirname, 'dist/index.html'));
-      } else {
-        res.status(404).send('Not Found');
-      }
-    });
   }
 
   // ── Global Error Handler ─────────────────────────────────────────────────────
@@ -1399,7 +1380,8 @@ let appPromise = startServer();
 
 export default appPromise;
 
-if (process.env.NODE_ENV !== 'production' || process.env.RENDER) {
+// Start the HTTP listener locally (not on Vercel – Vercel invokes the handler directly)
+if (!process.env.VERCEL) {
   appPromise.then(app => {
     let PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
     const startApp = (port: number) => {
