@@ -56,23 +56,19 @@ const upload = multer({
 
 // ─── MongoDB Connection ───────────────────────────────────────────────────────
 const connectDB = async () => {
-  if (mongoose.connection.readyState >= 1) {
-    return; // Already connected – reuse existing connection in serverless
-  }
+  if (mongoose.connection.readyState >= 1) return;
+  
+  const start = Date.now();
+  console.log('[DEBUG] Connecting to MongoDB...');
   try {
-    // Force Node to use Google DNS for SRV records if ISP blocks it
-    const dns = await import('node:dns');
-    dns.setServers(['8.8.8.8', '8.8.4.4']);
-
     const conn = await mongoose.connect(process.env.MONGODB_URI || '');
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
-    // Only start cron jobs on a persistent server (not Vercel serverless)
+    console.log(`[DEBUG] MongoDB Connected (${Date.now() - start}ms): ${conn.connection.host}`);
+    
     if (!process.env.VERCEL) {
       startDeadlineReminderJob();
     }
   } catch (error: any) {
-    console.error(`MongoDB Error: ${error.message}`);
-    // Do NOT call process.exit in serverless – just throw so the request fails gracefully
+    console.error(`[DEBUG] MongoDB Error: ${error.message}`);
     throw new Error(`Database connection failed: ${error.message}`);
   }
 };
