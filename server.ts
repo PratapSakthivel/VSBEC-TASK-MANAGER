@@ -263,7 +263,11 @@ async function seedData() {
 // ─── Express App ──────────────────────────────────────────────────────────────
 async function startServer() {
   await connectDB();
-  await seedData();
+  // seedData() does heavy user sync (loops through all users) which causes 10s+ timeout on Vercel.
+  // Only run it on persistent servers where it has time to complete.
+  if (!process.env.VERCEL) {
+    await seedData();
+  }
 
   const app = express();
   // Trust proxy for correct IP detection on Render/Vercel
