@@ -1390,22 +1390,33 @@ async function startServer() {
     });
   });
 
-  let PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
-  const startApp = (port: number) => {
-    const server = app.listen(port, '0.0.0.0', () => {
-      console.log(`Server running on http://localhost:${port}`);
-    });
-    server.on('error', (err: any) => {
-      if (err.code === 'EADDRINUSE') {
-        process.stdout.write(`\rPort ${port} in use, trying ${port + 1}...\n`);
-        startApp(port + 1);
-      } else {
-        console.error(err);
-      }
-    });
-  };
-
-  startApp(PORT);
+  return app;
 }
 
-startServer();
+// ── App Export for Vercel & Local Startup ───────────────────────────────────
+
+let appPromise = startServer();
+
+export default appPromise;
+
+if (process.env.NODE_ENV !== 'production' || process.env.RENDER) {
+  appPromise.then(app => {
+    let PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+    const startApp = (port: number) => {
+      const server = app.listen(port, '0.0.0.0', () => {
+        console.log(`Server running on http://localhost:${port}`);
+      });
+      server.on('error', (err: any) => {
+        if (err.code === 'EADDRINUSE') {
+          process.stdout.write(`\rPort ${port} in use, trying ${port + 1}...\n`);
+          startApp(port + 1);
+        } else {
+          console.error(err);
+        }
+      });
+    };
+    startApp(PORT);
+  }).catch(err => {
+    console.error("Failed to start server", err);
+  });
+}
