@@ -1642,7 +1642,6 @@ export default function App() {
       <Card className="p-0 overflow-hidden rounded-[2.5rem] border-zinc-200 dark:border-zinc-800 shadow-2xl bg-white dark:bg-zinc-900 mt-10">
         <div className="p-8 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/20">
           <h3 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tight">{title}</h3>
-          <p className="text-sm font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest mt-1">Track student progress and events</p>
         </div>
 
         <div className="px-8 pt-6 pb-6 flex flex-wrap gap-6 bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800">
