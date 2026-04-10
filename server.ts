@@ -1048,10 +1048,13 @@ async function startServer() {
       .populate('task_id', 'title')
       .populate({ path: 'user_id', select: 'full_name register_number class_id', populate: { path: 'class_id', select: 'name year' } });
 
-    if (req.user.role === 'STUDENT') {
-      // Both coordinators and regular students see only their own submissions
-      // Coordinators use /api/stats/coordinator for class-wide verification data
+    if (req.user.role === 'STUDENT' && !req.user.is_coordinator) {
+      // Regular students see only their own submissions
       subs = await TaskSubmission.find({ user_id: req.user.id }).populate('task_id', 'title');
+    } else if (req.user.role === 'STUDENT' && req.user.is_coordinator) {
+      // Coordinators see all class submissions for verification
+      const students = await User.find({ class_id: req.user.class_id }, '_id');
+      subs = await populate(TaskSubmission.find({ user_id: { $in: students.map(s => s._id) } }));
     } else if (req.user.role === 'CLASS_ADVISOR') {
       const students = await User.find({ class_id: req.user.class_id }, '_id');
       subs = await populate(TaskSubmission.find({ user_id: { $in: students.map(s => s._id) } }));
