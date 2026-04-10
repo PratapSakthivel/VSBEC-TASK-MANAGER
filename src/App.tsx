@@ -1519,12 +1519,25 @@ export default function App() {
     const currentYearScope = isYear ? Number(user?.year_scope) : null;
     const currentClassId = isCls ? (user?.class_id || myClass?.id || analyzerClassFilter)?.toString() : analyzerClassFilter;
 
+    // Debug logging for year coordinator
+    if (isYear && typeof window !== 'undefined') {
+      console.log('[YEAR_COORDINATOR_DEBUG]', {
+        currentDeptId,
+        currentYearScope,
+        analyzerClassFilter,
+        totalUsers: users.length,
+        totalClasses: classes.length,
+        classesInScope: classes.filter(c => Number(c.year) === currentYearScope).length
+      });
+    }
+
     const deptStudents = users.filter(u => {
       if (u.role !== 'STUDENT') return false;
       if (isCls) return u.class_id?.toString() === currentClassId;
       if (isYear) {
         const studentClass = classes.find(c => c.id.toString() === u.class_id?.toString());
-        return u.department_id?.toString() === currentDeptId && Number(studentClass?.year) === currentYearScope;
+        const matches = u.department_id?.toString() === currentDeptId && Number(studentClass?.year) === currentYearScope;
+        return matches;
       }
       if (currentDeptId) return u.department_id?.toString() === currentDeptId;
       return true;
@@ -1533,6 +1546,11 @@ export default function App() {
       if (isYear && analyzerClassFilter) return u.class_id?.toString() === analyzerClassFilter;
       return true;
     });
+
+    // Debug logging for filtered students
+    if (isYear && typeof window !== 'undefined') {
+      console.log('[YEAR_COORDINATOR_DEBUG] Filtered students:', deptStudents.length);
+    }
 
     const enriched = deptStudents.map(student => {
       let submissionStatus = 'PENDING';
