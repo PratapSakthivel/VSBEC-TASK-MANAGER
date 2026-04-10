@@ -1515,13 +1515,20 @@ export default function App() {
     const isYear = role === 'YEAR_COORDINATOR';
     const isCls = role === 'CLASS_ADVISOR' || role === 'COORDINATOR' || role === 'STUDENT_COORDINATOR';
 
-    const currentDeptId = isGlobal ? adminDeptFilter : user?.department_id?.toString();
+    // Fix: Ensure department_id is properly extracted as string
+    const currentDeptId = isGlobal 
+      ? adminDeptFilter 
+      : (typeof user?.department_id === 'object' && user?.department_id?._id 
+          ? user.department_id._id.toString() 
+          : user?.department_id?.toString());
+    
     const currentYearScope = isYear ? Number(user?.year_scope) : null;
     const currentClassId = isCls ? (user?.class_id || myClass?.id || analyzerClassFilter)?.toString() : analyzerClassFilter;
 
     // Debug logging for year coordinator
     if (isYear && typeof window !== 'undefined') {
       console.log('[YEAR_COORDINATOR_DEBUG]', {
+        user_department_id: user?.department_id,
         currentDeptId,
         currentYearScope,
         analyzerClassFilter,
@@ -1536,10 +1543,19 @@ export default function App() {
       if (isCls) return u.class_id?.toString() === currentClassId;
       if (isYear) {
         const studentClass = classes.find(c => c.id.toString() === u.class_id?.toString());
-        const matches = u.department_id?.toString() === currentDeptId && Number(studentClass?.year) === currentYearScope;
+        // Fix: Handle both object and string department_id
+        const studentDeptId = typeof u.department_id === 'object' && u.department_id?._id
+          ? u.department_id._id.toString()
+          : u.department_id?.toString();
+        const matches = studentDeptId === currentDeptId && Number(studentClass?.year) === currentYearScope;
         return matches;
       }
-      if (currentDeptId) return u.department_id?.toString() === currentDeptId;
+      if (currentDeptId) {
+        const studentDeptId = typeof u.department_id === 'object' && u.department_id?._id
+          ? u.department_id._id.toString()
+          : u.department_id?.toString();
+        return studentDeptId === currentDeptId;
+      }
       return true;
     }).filter(u => {
       if (!isCls && !isYear && analyzerClassFilter) return u.class_id?.toString() === analyzerClassFilter;
@@ -1550,6 +1566,13 @@ export default function App() {
     // Debug logging for filtered students
     if (isYear && typeof window !== 'undefined') {
       console.log('[YEAR_COORDINATOR_DEBUG] Filtered students:', deptStudents.length);
+      if (deptStudents.length > 0) {
+        console.log('[YEAR_COORDINATOR_DEBUG] Sample student:', {
+          name: deptStudents[0].full_name,
+          class_id: deptStudents[0].class_id,
+          department_id: deptStudents[0].department_id
+        });
+      }
     }
 
     const enriched = deptStudents.map(student => {
