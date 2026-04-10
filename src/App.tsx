@@ -1669,7 +1669,11 @@ export default function App() {
               >
                 <option value="">All Classes</option>
                 {classes.filter(c => {
-                  if (currentDeptId && c.department_id?.toString() !== currentDeptId) return false;
+                  // Fix: Handle department_id as object or string
+                  const classDeptId = typeof c.department_id === 'object' && c.department_id?._id
+                    ? c.department_id._id.toString()
+                    : c.department_id?.toString();
+                  if (currentDeptId && classDeptId !== currentDeptId) return false;
                   if (isYear && Number(c.year) !== currentYearScope) return false;
                   return true;
                 }).map(c => (
@@ -1687,11 +1691,15 @@ export default function App() {
             >
               <option value="">All Events</option>
               {tasks.filter(t => {
-                const isDeptMatch = !currentDeptId || t.department_id?.toString() === currentDeptId || !t.department_id;
+                // Fix: Handle department_id as object or string
+                const taskDeptId = typeof t.department_id === 'object' && t.department_id?._id
+                  ? t.department_id._id.toString()
+                  : t.department_id?.toString();
+                const isDeptMatch = !currentDeptId || taskDeptId === currentDeptId || !t.department_id;
                 if (!isDeptMatch) return false;
                 if (currentClassId) {
                   if ((t.class_ids || []).some(cid => cid.toString() === currentClassId)) return true;
-                  if (t.department_id && t.department_id.toString() === currentDeptId && (!(t.class_ids || []).length)) return true;
+                  if (t.department_id && taskDeptId === currentDeptId && (!(t.class_ids || []).length)) return true;
                   if (!t.department_id && (!(t.class_ids || []).length)) return true;
                   return false;
                 }
