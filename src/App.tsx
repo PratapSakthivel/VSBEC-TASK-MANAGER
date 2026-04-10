@@ -52,6 +52,12 @@ interface YearStats {
   taskStats: { id: string; title: string; submitted: number; verified: number; pending: number; rejected: number; }[];
   classStats: { id: string; name: string; total_students: number; participating_students: number; }[];
   year: number;
+  _debug?: {
+    queriedClasses: number;
+    statsGenerated: number;
+    departmentId: number;
+  };
+  _incompleteData?: boolean;
 }
 
 interface User {
@@ -433,6 +439,7 @@ export default function App() {
   const [yearStats, setYearStats] = useState<YearStats | null>(null);
   const [myClass, setMyClass] = useState<Class | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [myTaskStatus, setMyTaskStatus] = useState<Record<string, any>>({});
   const [showExportModal, setShowExportModal] = useState(false);
   const [reportFilters, setReportFilters] = useState({ classId: '', year: '', category: '', taskId: '', status: '' });
   const [expandedClass, setExpandedClass] = useState<number | null>(null);
@@ -568,7 +575,10 @@ export default function App() {
               if (freshUser.role === 'STUDENT' && freshUser.is_coordinator) fetchCoordinatorStats();
               fetchMyClass();
             }
-            if (freshUser.role === 'STUDENT') fetchStudentStats();
+            if (freshUser.role === 'STUDENT') {
+              fetchStudentStats();
+              fetchMyTaskStatus();
+            }
             if (freshUser.is_year_coordinator) fetchYearStats();
           } else {
             // Fallback to saved user if refresh fails
@@ -640,14 +650,39 @@ export default function App() {
   const fetchYearStats = async () => {
     try {
       const res = await fetch(`${API_URL}/api/stats/year`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) setYearStats(await res.json());
-    } catch (e) { }
+      if (res.ok) {
+        const data = await res.json();
+        
+        // Validate data completeness
+        if (data.classStats && data.classStats.length < data.total_classes) {
+          console.warn('[YEAR_COORDINATOR] Incomplete class data received:', {
+            expected: data.total_classes,
+            received: data.classStats.length,
+            debug: data._debug
+          });
+          
+          // Add warning to the data
+          data._incompleteData = true;
+        }
+        
+        setYearStats(data);
+      }
+    } catch (e) { 
+      console.error('[YEAR_COORDINATOR] Failed to fetch year stats:', e);
+    }
   };
 
   const fetchNotifications = async () => {
     try {
       const res = await fetch(`${API_URL}/api/notifications`, { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) setNotifications(await res.json());
+    } catch (e) { }
+  };
+
+  const fetchMyTaskStatus = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/tasks/my-status`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) setMyTaskStatus(await res.json());
     } catch (e) { }
   };
 
@@ -1033,8 +1068,9 @@ export default function App() {
         });
         setCustomFieldValue('');
         addToast('Task submitted successfully!', 'success');
-        // Only refresh submissions after submitting
+        // Refresh submissions and personal task status after submitting
         fetchSubmissions();
+        if (isStudent) fetchMyTaskStatus();
       } else {
         const data = await res.json();
         addToast(`Submission failed: ${data.error}`, 'error');
@@ -2257,6 +2293,28 @@ export default function App() {
                   </div>
                 ) : user?.is_year_coordinator ? (
                   <div className="flex flex-col gap-10">
+                    {/* Warning for incomplete class data */}
+                    {yearStats?._incompleteData && (
+                      <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-2xl p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 bg-yellow-100 dark:bg-yellow-900/40 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <span className="text-yellow-600 dark:text-yellow-400 text-lg">⚠️</span>
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="text-sm font-bold text-yellow-900 dark:text-yellow-100 mb-1">Incomplete Class Data</h4>
+                            <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                              Some classes may be missing from the dashboard. Expected {yearStats.total_classes} classes but received {yearStats.classStats?.length || 0} class statistics.
+                              {yearStats._debug && (
+                                <span className="block mt-1 font-mono text-[10px]">
+                                  Debug: {yearStats._debug.queriedClasses} queried, {yearStats._debug.statsGenerated} generated (Dept: {yearStats._debug.departmentId})
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
                     {/* Coordinator Header Stats */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 shadow-sm hover:shadow-md transition-all group">
@@ -3201,7 +3259,13 @@ export default function App() {
 
                   <div className="space-y-4 pb-12">
                     {tasks.map(task => {
-                      const submission = submissions.find(s => s.task_id === task.id);
+                      // For students, use myTaskStatus to get personal completion status
+                      // For coordinators viewing their own tasks, this ensures independent tracking
+                      const personalStatus = myTaskStatus[task.id];
+                      const submission = isStudent && personalStatus 
+                        ? submissions.find(s => s.id === personalStatus.id)
+                        : submissions.find(s => s.task_id === task.id);
+                      
                       const isDeadlinePassed = task.deadline && new Date(task.deadline) < new Date();
                       const isWithin24h = task.deadline && !isDeadlinePassed && (new Date(task.deadline).getTime() - new Date().getTime()) < 24 * 60 * 60 * 1000;
 

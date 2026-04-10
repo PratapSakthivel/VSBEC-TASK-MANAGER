@@ -1049,13 +1049,9 @@ async function startServer() {
       .populate({ path: 'user_id', select: 'full_name register_number class_id', populate: { path: 'class_id', select: 'name year' } });
 
     if (req.user.role === 'STUDENT') {
-      if (req.user.is_coordinator) {
-        const students = await User.find({ class_id: req.user.class_id }, '_id');
-        const ids = students.map(s => s._id);
-        subs = await populate(TaskSubmission.find({ user_id: { $in: ids } }));
-      } else {
-        subs = await TaskSubmission.find({ user_id: req.user.id }).populate('task_id', 'title');
-      }
+      // Both coordinators and regular students see only their own submissions
+      // Coordinators use /api/stats/coordinator for class-wide verification data
+      subs = await TaskSubmission.find({ user_id: req.user.id }).populate('task_id', 'title');
     } else if (req.user.role === 'CLASS_ADVISOR') {
       const students = await User.find({ class_id: req.user.class_id }, '_id');
       subs = await populate(TaskSubmission.find({ user_id: { $in: students.map(s => s._id) } }));
@@ -1199,6 +1195,23 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  // Personal task status endpoint for coordinators
+  app.get('/api/tasks/my-status', authenticate, authorize(['STUDENT']), async (req: any, res) => {
+    const userId = req.user.id;
+    const submissions = await TaskSubmission.find({ user_id: userId });
+    const statusMap: Record<string, any> = {};
+    
+    submissions.forEach(sub => {
+      statusMap[sub.task_id.toString()] = {
+        status: sub.status,
+        submitted_at: sub.submitted_at,
+        id: sub._id
+      };
+    });
+    
+    res.json(statusMap);
+  });
+
   // ── Notifications ─────────────────────────────────────────────────────────
   app.get('/api/notifications', authenticate, async (req: any, res) => {
     const notifications = await Notification.find({ user_id: req.user.id })
@@ -1254,7 +1267,23 @@ async function startServer() {
     const yearScope = req.user.year_scope;
     const deptId = req.user.department_id;
 
-    const classes = await Class.find({ department_id: deptId, year: yearScope });
+    // Add diagnostic query to identify classes without year field
+    const classesWithoutYear = await Class.find({ 
+      department_id: deptId,
+      $or: [{ year: null }, { year: { $exists: false } }]
+    });
+    
+    if (classesWithoutYear.length > 0) {
+      console.warn(`[YEAR_COORDINATOR] Found ${classesWithoutYear.length} classes without year field in dept ${deptId}:`, 
+        classesWithoutYear.map(c => ({ id: c._id, name: c.name })));
+    }
+
+    // Update main query to use numeric comparison
+    const classes = await Class.find({ 
+      department_id: deptId, 
+      year: { $eq: parseInt(yearScope) }
+    });
+    
     const classIds = classes.map(c => c._id);
     const students = await User.find({ class_id: { $in: classIds }, role: 'STUDENT' });
     const studentIds = students.map(s => s._id);
@@ -1294,7 +1323,24 @@ async function startServer() {
       };
     }));
 
-    res.json({ total_students: students.length, total_classes: classes.length, taskStats, classStats, year: yearScope });
+    // Add validation to ensure classStats.length matches classes.length
+    if (classStats.length !== classes.length) {
+      console.error(`[YEAR_COORDINATOR] ClassStats mismatch: ${classStats.length} stats for ${classes.length} classes`);
+    }
+
+    // Add debug information to response
+    res.json({ 
+      total_students: students.length, 
+      total_classes: classes.length, 
+      taskStats, 
+      classStats, 
+      year: yearScope,
+      _debug: {
+        queriedClasses: classes.length,
+        statsGenerated: classStats.length,
+        departmentId: deptId
+      }
+    });
   });
 
   // ── Stats: Student ────────────────────────────────────────────────────────
