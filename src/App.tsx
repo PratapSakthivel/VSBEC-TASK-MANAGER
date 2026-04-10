@@ -1396,10 +1396,7 @@ export default function App() {
             >
               {isDarkMode ? <Sun size={24} /> : <Moon size={24} />}
             </button>
-            <div className="w-16 h-16 bg-black dark:bg-white rounded-2xl flex items-center justify-center mb-6 shadow-xl">
-              <ShieldCheck className="text-white dark:text-black w-8 h-8" />
-            </div>
-            <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">Academic Portal v2</h1>
+            <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">Academic Portal</h1>
             <p className="text-zinc-500 dark:text-zinc-400 mt-2 text-lg">VSBEC Task Management System</p>
           </div>
 
